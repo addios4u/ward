@@ -1,0 +1,64 @@
+# 의존성
+node_modules/
+.pnp
+.pnp.js
+
+# 빌드 결과물
+dist/
+build/
+out/
+.next/
+.turbo/
+
+# Rust 빌드
+target/
+
+# 환경 변수
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# 로그
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 런타임 데이터
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# 테스트 커버리지
+coverage/
+.nyc_output/
+lcov.info
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# TypeScript
+*.tsbuildinfo
+
+# Docker
+.dockerignore
+
+# OMC (oh-my-claudecode)
+.omc/
+
+# 임시 파일
+tmp/
+temp/
