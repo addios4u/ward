@@ -12,12 +12,12 @@
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-    "docker:start": "docker compose -f docker/docker-compose.yml up -d",
-    "docker:stop": "docker compose -f docker/docker-compose.yml down",
-    "docker:restart": "docker compose -f docker/docker-compose.yml restart",
-    "docker:logs": "docker compose -f docker/docker-compose.yml logs -f",
-    "docker:build": "docker compose -f docker/docker-compose.yml build",
-    "docker:status": "docker compose -f docker/docker-compose.yml ps"
+    "docker:start": "docker compose -f docker/docker-compose.yml --env-file .env up -d",
+    "docker:stop": "docker compose -f docker/docker-compose.yml --env-file .env down",
+    "docker:restart": "docker compose -f docker/docker-compose.yml --env-file .env restart",
+    "docker:logs": "docker compose -f docker/docker-compose.yml --env-file .env logs -f",
+    "docker:build": "docker compose -f docker/docker-compose.yml --env-file .env build",
+    "docker:status": "docker compose -f docker/docker-compose.yml --env-file .env ps"
   },
   "devDependencies": {
     "concurrently": "^9.0.0",
@@ -30,5 +30,6 @@
   "engines": {
     "node": ">=22.0.0",
     "pnpm": ">=9.0.0"
-  }
+  },
+  "packageManager": "pnpm@10.26.2+sha512.0e308ff2005fc7410366f154f625f6631ab2b16b1d2e70238444dd6ae9d630a8482d92a451144debc492416896ed16f7b114a86ec68b8404b2443869e68ffda6"
 }
