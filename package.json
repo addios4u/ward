@@ -1,0 +1,25 @@
+{
+  "name": "ward",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted 서버 모니터링 시스템",
+  "scripts": {
+    "dev:server": "pnpm --filter @ward/server dev",
+    "dev:web": "pnpm --filter @ward/web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
