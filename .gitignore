@@ -60,3 +60,6 @@ Thumbs.db
 # 임시 파일
 tmp/
 temp/
+
+# Docker 데이터 (로컬 볼륨)
+docker/data/

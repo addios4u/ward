@@ -12,7 +12,7 @@ services:
       LANG: ko_KR.UTF-8
       LC_ALL: ko_KR.UTF-8
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ./data/postgresql:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ward}"]
@@ -26,6 +26,8 @@ services:
     command: redis-server --requirepass ${REDIS_PASSWORD:-}
     ports:
       - "6379:6379"
+    volumes:
+      - ./data/redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -74,6 +76,3 @@ services:
       INTERNAL_SERVER_URL: http://server:4000
     ports:
       - "3000:3000"
-
-volumes:
-  pgdata:
