@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import healthRouter from './routes/health.js';
 import serversRouter from './routes/servers.js';
+import agentRouter from './routes/agent.js';
 
 export function createApp() {
   const app = express();
@@ -13,6 +14,7 @@ export function createApp() {
   // 라우터
   app.use('/health', healthRouter);
   app.use('/api/servers', serversRouter);
+  app.use('/api/agent', agentRouter);
 
   // 에러 핸들러
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

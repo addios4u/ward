@@ -1,0 +1,143 @@
+import { Router, Request, Response, NextFunction } from 'express';
+import { getDb, schema } from '../db/index.js';
+import { agentAuth } from '../middleware/agentAuth.js';
+
+// agentAuth가 req에 첨부하는 서버 정보 타입
+type AuthenticatedRequest = Request & { server: typeof schema.servers.$inferSelect };
+
+const router = Router();
+
+// 모든 에이전트 라우트에 인증 적용
+router.use(agentAuth);
+
+// POST /api/agent/metrics — 에이전트 메트릭 수신 + DB 저장
+router.post('/metrics', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const server = (req as AuthenticatedRequest).server;
+    const body = req.body as {
+      collectedAt?: string;
+      cpu?: { usage?: number; loadAvg?: number[] };
+      memory?: { total?: number; used?: number; free?: number };
+      disk?: Record<string, { total: number; used: number; free: number }>;
+      network?: Record<string, { rx: number; tx: number }>;
+      processes?: Array<{ pid: number; name: string; cpu: number; memory: number }>;
+    };
+
+    if (!body.collectedAt) {
+      res.status(400).json({ error: 'collectedAt은 필수입니다.' });
+      return;
+    }
+
+    const db = getDb();
+
+    // metrics 테이블에 저장
+    await db.insert(schema.metrics).values({
+      serverId: server.id,
+      collectedAt: new Date(body.collectedAt),
+      cpuUsage: body.cpu?.usage ?? null,
+      memTotal: body.memory?.total ?? null,
+      memUsed: body.memory?.used ?? null,
+      diskUsage: body.disk ?? null,
+      networkIo: body.network ?? null,
+      loadAvg: body.cpu?.loadAvg ?? null,
+    });
+
+    // processes 테이블에 저장
+    if (body.processes && body.processes.length > 0) {
+      await db.insert(schema.processes).values(
+        body.processes.map((p) => ({
+          serverId: server.id,
+          collectedAt: new Date(body.collectedAt!),
+          pid: p.pid,
+          name: p.name,
+          cpuUsage: p.cpu,
+          memUsage: p.memory,
+        }))
+      );
+    }
+
+    res.status(201).json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/agent/logs — 에이전트 로그 배치 수신 + DB 저장
+router.post('/logs', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const server = (req as AuthenticatedRequest).server;
+    const body = req.body as {
+      logs?: Array<{
+        source?: string;
+        level?: string;
+        message?: string;
+        loggedAt?: string;
+      }>;
+    };
+
+    if (!body.logs || !Array.isArray(body.logs) || body.logs.length === 0) {
+      res.status(400).json({ error: 'logs 배열은 필수입니다.' });
+      return;
+    }
+
+    const db = getDb();
+
+    await db.insert(schema.logs).values(
+      body.logs.map((log) => ({
+        serverId: server.id,
+        source: log.source ?? null,
+        level: log.level ?? null,
+        message: log.message ?? '',
+        loggedAt: new Date(log.loggedAt ?? Date.now()),
+      }))
+    );
+
+    res.status(201).json({ ok: true, count: body.logs.length });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/agent/heartbeat — heartbeat 수신 + server status를 online으로 업데이트
+router.post('/heartbeat', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const server = (req as AuthenticatedRequest).server;
+    const db = getDb();
+
+    const { eq } = await import('drizzle-orm');
+
+    await db
+      .update(schema.servers)
+      .set({
+        status: 'online',
+        lastSeenAt: new Date(),
+      })
+      .where(eq(schema.servers.id, server.id));
+
+    res.json({ ok: true, serverId: server.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/agent/config — 에이전트 설정 반환
+router.get('/config', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const server = (req as AuthenticatedRequest).server;
+
+    // 현재는 기본 설정을 반환; 추후 DB에서 서버별 설정을 가져올 수 있음
+    res.json({
+      serverId: server.id,
+      config: {
+        metricsIntervalSec: 30,
+        heartbeatIntervalSec: 60,
+        logBatchSize: 100,
+        logFlushIntervalSec: 5,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;
