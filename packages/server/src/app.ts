@@ -1,11 +1,13 @@
 import express from 'express';
 import cors from 'cors';
+import { createServer } from 'http';
 import healthRouter from './routes/health.js';
 import serversRouter from './routes/servers.js';
 import agentRouter from './routes/agent.js';
 import authRouter from './routes/auth.js';
 import metricsRouter from './routes/metrics.js';
 import logsRouter from './routes/logs.js';
+import { WsManager } from './websocket/WsManager.js';
 
 export function createApp() {
   const app = express();
@@ -29,4 +31,16 @@ export function createApp() {
   });
 
   return app;
+}
+
+/**
+ * HTTP 서버 + WebSocket 서버 생성
+ * WebSocket은 Redis Pub/Sub를 통해 실시간 메트릭/로그/상태를 클라이언트에 전달
+ */
+export function createHttpServer() {
+  const app = createApp();
+  const httpServer = createServer(app);
+  const wsManager = new WsManager(httpServer);
+
+  return { httpServer, wsManager };
 }

@@ -1,11 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { getDb, schema } from '../db/index.js';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { generateApiKey } from '../lib/apiKey.js';
+import { safeGet, REDIS_KEYS } from '../lib/redis.js';
 
 const router = Router();
 
-// GET /api/servers — 서버 목록 조회
+// GET /api/servers — 서버 목록 조회 (최신 메트릭 Redis 캐시 활용)
 router.get('/', async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const db = getDb();
@@ -21,7 +22,40 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction): Promis
       .from(schema.servers)
       .orderBy(schema.servers.createdAt);
 
-    res.json({ servers: serverList });
+    // 각 서버의 최신 메트릭을 Redis 캐시에서 조회
+    const serversWithMetrics = await Promise.all(
+      serverList.map(async (server) => {
+        let latestMetrics: unknown = null;
+
+        // Redis 캐시에서 먼저 조회
+        const cached = await safeGet(REDIS_KEYS.latestMetrics(server.id));
+        if (cached) {
+          try {
+            latestMetrics = JSON.parse(cached);
+          } catch {
+            // 파싱 실패 시 무시
+          }
+        }
+
+        // Redis에 없으면 DB에서 가장 최근 메트릭 조회
+        if (!latestMetrics) {
+          const [dbMetrics] = await db
+            .select()
+            .from(schema.metrics)
+            .where(eq(schema.metrics.serverId, server.id))
+            .orderBy(desc(schema.metrics.collectedAt))
+            .limit(1);
+          latestMetrics = dbMetrics ?? null;
+        }
+
+        return {
+          ...server,
+          latestMetrics,
+        };
+      })
+    );
+
+    res.json({ servers: serversWithMetrics });
   } catch (err) {
     next(err);
   }

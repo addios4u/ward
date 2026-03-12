@@ -27,4 +27,10 @@ export const config = {
     metricsDays: parseInt(process.env.METRICS_RETENTION_DAYS ?? '30', 10),
     logsDays: parseInt(process.env.LOGS_RETENTION_DAYS ?? '7', 10),
   },
+  redis: {
+    url: process.env.REDIS_URL ?? '',
+    host: process.env.REDIS_HOST ?? 'localhost',
+    port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+    password: process.env.REDIS_PASSWORD ?? undefined,
+  },
 } as const;

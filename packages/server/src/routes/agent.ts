@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { getDb, schema } from '../db/index.js';
 import { agentAuth } from '../middleware/agentAuth.js';
+import { safePublish, safeSet, REDIS_CHANNELS, REDIS_KEYS } from '../lib/redis.js';
 
 // agentAuth가 req에 첨부하는 서버 정보 타입
 type AuthenticatedRequest = Request & { server: typeof schema.servers.$inferSelect };
@@ -10,7 +11,7 @@ const router = Router();
 // 모든 에이전트 라우트에 인증 적용
 router.use(agentAuth);
 
-// POST /api/agent/metrics — 에이전트 메트릭 수신 + DB 저장
+// POST /api/agent/metrics — 에이전트 메트릭 수신 + DB 저장 + Redis 캐시/발행
 router.post('/metrics', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const server = (req as AuthenticatedRequest).server;
@@ -56,13 +57,20 @@ router.post('/metrics', async (req: Request, res: Response, next: NextFunction):
       );
     }
 
+    // Redis 최신 메트릭 캐시 (TTL: 60초)
+    const metricsJson = JSON.stringify(body);
+    await safeSet(REDIS_KEYS.latestMetrics(server.id), metricsJson, 60);
+
+    // Redis Pub/Sub 발행
+    await safePublish(REDIS_CHANNELS.metrics(server.id), metricsJson);
+
     res.status(201).json({ ok: true });
   } catch (err) {
     next(err);
   }
 });
 
-// POST /api/agent/logs — 에이전트 로그 배치 수신 + DB 저장
+// POST /api/agent/logs — 에이전트 로그 배치 수신 + DB 저장 + Redis 발행
 router.post('/logs', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const server = (req as AuthenticatedRequest).server;
@@ -92,13 +100,16 @@ router.post('/logs', async (req: Request, res: Response, next: NextFunction): Pr
       }))
     );
 
+    // Redis Pub/Sub 발행
+    await safePublish(REDIS_CHANNELS.logs(server.id), JSON.stringify(body.logs));
+
     res.status(201).json({ ok: true, count: body.logs.length });
   } catch (err) {
     next(err);
   }
 });
 
-// POST /api/agent/heartbeat — heartbeat 수신 + server status를 online으로 업데이트
+// POST /api/agent/heartbeat — heartbeat 수신 + server status를 online으로 업데이트 + Redis 캐시/발행
 router.post('/heartbeat', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const server = (req as AuthenticatedRequest).server;
@@ -113,6 +124,15 @@ router.post('/heartbeat', async (req: Request, res: Response, next: NextFunction
         lastSeenAt: new Date(),
       })
       .where(eq(schema.servers.id, server.id));
+
+    // Redis 상태 캐시 (TTL: 90초)
+    await safeSet(REDIS_KEYS.latestStatus(server.id), 'online', 90);
+
+    // Redis Pub/Sub 발행
+    await safePublish(
+      REDIS_CHANNELS.serverStatus,
+      JSON.stringify({ serverId: server.id, status: 'online' })
+    );
 
     res.json({ ok: true, serverId: server.id });
   } catch (err) {
