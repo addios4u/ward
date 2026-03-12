@@ -11,9 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint src",
-    "db:migrate": "tsx src/db/migrate.ts",
-    "db:generate": "drizzle-kit generate"
+    "lint": "eslint src"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -37,8 +35,7 @@
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.0",
     "@vitest/coverage-v8": "^2.0.0",
-    "drizzle-kit": "^0.30.0",
-    "supertest": "^7.0.0",
+"supertest": "^7.0.0",
     "tsx": "^4.15.0",
     "vitest": "^2.0.0"
   }
