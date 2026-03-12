@@ -4,6 +4,8 @@
   "private": true,
   "description": "Self-hosted 서버 모니터링 시스템",
   "scripts": {
+    "dev": "concurrently -n server,web -c blue,green \"pnpm --filter @ward/server dev\" \"pnpm --filter @ward/web dev\"",
+    "start": "concurrently -n server,web -c blue,green \"pnpm --filter @ward/server start\" \"pnpm --filter @ward/web start\"",
     "dev:server": "pnpm --filter @ward/server dev",
     "dev:web": "pnpm --filter @ward/web dev",
     "build": "pnpm -r build",
@@ -18,6 +20,7 @@
     "docker:status": "docker compose -f docker/docker-compose.yml ps"
   },
   "devDependencies": {
+    "concurrently": "^9.0.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^9.0.0",
