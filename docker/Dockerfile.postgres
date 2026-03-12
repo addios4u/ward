@@ -1,0 +1,19 @@
+# TimescaleDB를 베이스로 사용 (PostgreSQL 16 포함)
+# - timescaledb: 시계열 데이터 최적화 (metrics, logs, processes 테이블)
+# - pgvector: 벡터 검색 (로그 의미 검색 등 향후 활용)
+# - 한국어 로케일: UTF-8 정렬/비교 지원
+FROM timescale/timescaledb:latest-pg16
+
+# 한국어 로케일 및 pgvector 설치
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        locales \
+        postgresql-16-pgvector && \
+    sed -i -e 's/# ko_KR.UTF-8 UTF-8/ko_KR.UTF-8 UTF-8/' /etc/locale.gen && \
+    locale-gen ko_KR.UTF-8 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV LANG=ko_KR.UTF-8 \
+    LANGUAGE=ko_KR:ko \
+    LC_ALL=ko_KR.UTF-8
