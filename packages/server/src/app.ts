@@ -3,6 +3,9 @@ import cors from 'cors';
 import healthRouter from './routes/health.js';
 import serversRouter from './routes/servers.js';
 import agentRouter from './routes/agent.js';
+import authRouter from './routes/auth.js';
+import metricsRouter from './routes/metrics.js';
+import logsRouter from './routes/logs.js';
 
 export function createApp() {
   const app = express();
@@ -15,6 +18,9 @@ export function createApp() {
   app.use('/health', healthRouter);
   app.use('/api/servers', serversRouter);
   app.use('/api/agent', agentRouter);
+  app.use('/api/auth', authRouter);
+  app.use('/api/servers', metricsRouter);
+  app.use('/api/servers', logsRouter);
 
   // 에러 핸들러
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
