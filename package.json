@@ -9,7 +9,13 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
-    "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "docker:start": "docker compose -f docker/docker-compose.yml up -d",
+    "docker:stop": "docker compose -f docker/docker-compose.yml down",
+    "docker:restart": "docker compose -f docker/docker-compose.yml restart",
+    "docker:logs": "docker compose -f docker/docker-compose.yml logs -f",
+    "docker:build": "docker compose -f docker/docker-compose.yml build",
+    "docker:status": "docker compose -f docker/docker-compose.yml ps"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.0.0",
