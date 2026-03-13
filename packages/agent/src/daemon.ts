@@ -7,6 +7,8 @@ import { NetworkCollector } from './metrics/NetworkCollector.js';
 import { ProcessCollector } from './metrics/ProcessCollector.js';
 import { HttpClient } from './transport/HttpClient.js';
 import { Queue } from './transport/Queue.js';
+import { LogWatcher } from './logs/LogWatcher.js';
+import { LogForwarder } from './logs/LogForwarder.js';
 
 // 각 수집기 인스턴스 생성
 const cpuCollector = new CpuCollector();
@@ -21,6 +23,8 @@ const queue = new Queue({ maxSize: 1000, maxRetries: 3 });
 let httpClient: HttpClient;
 let metricsInterval: ReturnType<typeof setInterval>;
 let heartbeatInterval: ReturnType<typeof setInterval>;
+let logWatcher: LogWatcher;
+let logForwarder: LogForwarder;
 
 // 큐에 쌓인 데이터 재전송 시도
 async function flushQueue(): Promise<void> {
@@ -90,7 +94,7 @@ async function sendHeartbeat(): Promise<void> {
 }
 
 // 데몬 시작
-async function startDaemon(): Promise<void> {
+export async function startDaemon(): Promise<void> {
   const config = loadConfig();
 
   httpClient = new HttpClient({
@@ -101,6 +105,23 @@ async function startDaemon(): Promise<void> {
   console.log('Ward 에이전트 데몬 시작');
   console.log(`서버: ${config.server.url}`);
   console.log(`메트릭 수집 주기: ${config.metrics.interval}초`);
+
+  // LogWatcher/LogForwarder 초기화 및 연결
+  logWatcher = new LogWatcher();
+  logForwarder = new LogForwarder({ client: httpClient });
+
+  // 설정의 logs 배열로 로그 파일 감시 등록
+  for (const logConfig of config.logs) {
+    logWatcher.watch(logConfig.path, logConfig.type);
+  }
+
+  // LogWatcher 이벤트를 LogForwarder에 연결
+  logWatcher.on('line', (source: string, line: string) => {
+    logForwarder.addLog(source, line);
+  });
+
+  // LogForwarder 시작
+  logForwarder.start();
 
   // 메트릭 수집 인터벌 설정
   metricsInterval = setInterval(
@@ -121,6 +142,8 @@ process.on('SIGTERM', () => {
   console.log('에이전트 데몬 종료 중...');
   clearInterval(metricsInterval);
   clearInterval(heartbeatInterval);
+  logWatcher?.unwatchAll();
+  void logForwarder?.stop();
   process.exit(0);
 });
 
@@ -128,11 +151,15 @@ process.on('SIGINT', () => {
   console.log('에이전트 데몬 인터럽트...');
   clearInterval(metricsInterval);
   clearInterval(heartbeatInterval);
+  logWatcher?.unwatchAll();
+  void logForwarder?.stop();
   process.exit(0);
 });
 
-// 데몬 실행
-startDaemon().catch((error) => {
-  console.error('데몬 시작 실패:', error);
-  process.exit(1);
-});
+// 데몬 실행 (직접 실행 시)
+if (process.env['WARD_DAEMON'] === 'true') {
+  startDaemon().catch((error) => {
+    console.error('데몬 시작 실패:', error);
+    process.exit(1);
+  });
+}
