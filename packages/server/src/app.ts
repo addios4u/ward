@@ -11,6 +11,8 @@ import agentRouter from './routes/agent.js';
 import authRouter from './routes/auth.js';
 import metricsRouter from './routes/metrics.js';
 import logsRouter from './routes/logs.js';
+import servicesRouter, { processesRouter } from './routes/services.js';
+import usersRouter from './routes/users.js';
 import { WsManager } from './websocket/WsManager.js';
 import { getSessionStoreClient } from './lib/redis.js';
 import { config } from './config/index.js';
@@ -106,6 +108,9 @@ export function createApp() {
   app.use('/api/servers', apiLimiter, serversRouter);
   app.use('/api/servers', apiLimiter, metricsRouter);
   app.use('/api/servers', apiLimiter, logsRouter);
+  app.use('/api/servers', apiLimiter, processesRouter);
+  app.use('/api/services', apiLimiter, servicesRouter);
+  app.use('/api/users', apiLimiter, usersRouter);
 
   // 에러 핸들러
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
