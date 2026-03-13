@@ -63,3 +63,6 @@ temp/
 
 # Docker 데이터 (로컬 볼륨)
 docker/data/
+
+# Ward 런타임 데이터 (PID, 로그)
+.ward/
