@@ -103,14 +103,11 @@ export async function start(serverUrl: string, options: { name?: string } = {}):
   saveConfig({
     server: { url: normalizedUrl, groupName: options.name },
     metrics: { interval: 30 },
-    logs: [],
+    services: [],
   });
 
   // 7. 데몬 프로세스 시작
-  const daemonScript = path.join(
-    path.dirname(new URL(import.meta.url).pathname),
-    '../daemon.js'
-  );
+  const daemonScript = path.join(__dirname, '../daemon.js');
 
   const child = spawn('node', [daemonScript], {
     detached: true,

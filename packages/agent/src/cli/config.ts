@@ -22,12 +22,12 @@ export function configShow(): void {
   }
   console.log(`  메트릭 수집 주기: ${config.metrics.interval}초`);
 
-  if (config.logs.length > 0) {
-    console.log('  로그 파일:');
-    config.logs.forEach((log) => {
-      console.log(`    - ${log.path} (${log.type})`);
+  if (config.services.length > 0) {
+    console.log('  등록 서비스:');
+    config.services.forEach((svc) => {
+      console.log(`    - ${svc.name} (${svc.method})`);
     });
   } else {
-    console.log('  로그 파일: 없음');
+    console.log('  등록 서비스: 없음');
   }
 }

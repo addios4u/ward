@@ -5,6 +5,7 @@ import {
   addService,
   removeService,
   getPidPath,
+  type AgentConfig,
   type ServiceConfig,
 } from '../config/AgentConfig.js';
 

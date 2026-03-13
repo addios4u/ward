@@ -13,8 +13,8 @@ export function status(): void {
 
     console.log('에이전트 상태: 실행 중');
     console.log(`PID: ${pidStr}`);
-    console.log(`서버: ${config.server.url}`);
-    console.log(`메트릭 수집 주기: ${config.metrics.interval}초`);
+    console.log(`서버: ${config?.server.url ?? '-'}`);
+    console.log(`메트릭 수집 주기: ${config?.metrics.interval ?? 30}초`);
   } else {
     console.log('에이전트 상태: 중지됨');
   }
