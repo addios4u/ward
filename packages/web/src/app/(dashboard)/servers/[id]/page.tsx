@@ -6,6 +6,8 @@ import { serversApi } from '@/lib/api';
 import { MetricsChart } from '@/components/dashboard/MetricsChart';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
+import { Spinner } from '@/components/ui/Spinner';
+import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { useMetrics } from '@/hooks/useMetrics';
 import type { ServerStatusResponse } from '@/types';
 
@@ -52,9 +54,7 @@ export default function ServerDetailPage({ params }: ServerDetailPageProps) {
       </div>
 
       {statusError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
-          오류: {statusError}
-        </div>
+        <ErrorMessage message={statusError} onRetry={loadStatus} />
       )}
 
       {statusData && (
@@ -116,8 +116,9 @@ export default function ServerDetailPage({ params }: ServerDetailPageProps) {
         </CardHeader>
         <CardBody>
           {metricsLoading ? (
-            <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
-              로딩 중...
+            <div className="h-48 flex items-center justify-center gap-2 text-gray-400 text-sm">
+              <Spinner size="sm" />
+              <span>메트릭 불러오는 중...</span>
             </div>
           ) : (
             <MetricsChart metrics={metrics} />
