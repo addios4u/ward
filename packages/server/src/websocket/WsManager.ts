@@ -173,55 +173,58 @@ export class WsManager {
     const clients = this.subscriptions.get(redisChannel);
     if (!clients || clients.size === 0) return;
 
-    const outbound = this.buildOutboundMessage(redisChannel, message);
-    if (!outbound) return;
-
-    const payload = JSON.stringify(outbound);
+    const messages = this.buildOutboundMessages(redisChannel, message);
+    if (messages.length === 0) return;
 
     clients.forEach((ws) => {
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(payload);
+        for (const outbound of messages) {
+          ws.send(JSON.stringify(outbound));
+        }
       }
     });
   }
 
-  /** Redis 채널명을 기반으로 WebSocket 아웃바운드 메시지 생성 */
-  private buildOutboundMessage(redisChannel: string, message: string): WsOutboundMessage | null {
+  /** Redis 채널명을 기반으로 WebSocket 아웃바운드 메시지 목록 생성 */
+  private buildOutboundMessages(redisChannel: string, message: string): WsOutboundMessage[] {
     try {
       // ward:metrics:{serverId}
       const metricsMatch = redisChannel.match(/^ward:metrics:(.+)$/);
       if (metricsMatch) {
-        return {
+        return [{
           type: 'metrics',
           serverId: metricsMatch[1],
           data: JSON.parse(message),
-        };
+        }];
       }
 
-      // ward:logs:{serverId}
+      // ward:logs:{serverId} — 배열을 개별 메시지로 분리해서 전송
       const logsMatch = redisChannel.match(/^ward:logs:(.+)$/);
       if (logsMatch) {
-        return {
-          type: 'logs',
-          serverId: logsMatch[1],
-          data: JSON.parse(message),
-        };
+        const serverId = logsMatch[1];
+        const logs = JSON.parse(message) as Array<Record<string, unknown>>;
+        const base = Date.now();
+        return logs.map((log, i) => ({
+          type: 'logs' as const,
+          serverId,
+          data: { ...log, id: base + i },
+        }));
       }
 
       // ward:server:status
       if (redisChannel === 'ward:server:status') {
         const parsed = JSON.parse(message) as { serverId: string; status: string };
-        return {
+        return [{
           type: 'status',
           serverId: parsed.serverId,
           status: parsed.status,
-        };
+        }];
       }
     } catch (err) {
       console.error('WebSocket 아웃바운드 메시지 생성 오류:', (err as Error).message);
     }
 
-    return null;
+    return [];
   }
 
   /** WebSocket 클라이언트 연결 해제 시 정리 */
