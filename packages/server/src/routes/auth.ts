@@ -77,15 +77,23 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction): P
       .limit(1);
 
     if (!user) {
-      await loginGuard.recordFailure(ip);
-      res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
+      const { attemptsLeft } = await loginGuard.recordFailure(ip);
+      const newAttempts = 5 - attemptsLeft;
+      res.status(401).json({
+        error: '이메일 또는 비밀번호가 올바르지 않습니다.',
+        ...(newAttempts >= 3 ? { requireCaptcha: true } : {}),
+      });
       return;
     }
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
-      await loginGuard.recordFailure(ip);
-      res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
+      const { attemptsLeft } = await loginGuard.recordFailure(ip);
+      const newAttempts = 5 - attemptsLeft;
+      res.status(401).json({
+        error: '이메일 또는 비밀번호가 올바르지 않습니다.',
+        ...(newAttempts >= 3 ? { requireCaptcha: true } : {}),
+      });
       return;
     }
 
