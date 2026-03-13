@@ -5,7 +5,7 @@
   "description": "Ward 중앙 백엔드 서버",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --watch-dir src src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "test": "vitest run",
