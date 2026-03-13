@@ -38,6 +38,15 @@ vi.mock('../../src/lib/redis.js', () => ({
     latestStatus: (id: string) => `ward:latest:status:${id}`,
   },
   closeRedis: vi.fn().mockResolvedValue(undefined),
+  getSessionStoreClient: vi.fn().mockReturnValue({
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue('OK'),
+    del: vi.fn().mockResolvedValue(1),
+    expire: vi.fn().mockResolvedValue(1),
+    expiretime: vi.fn().mockResolvedValue(-1),
+    mget: vi.fn().mockResolvedValue([]),
+    scan: vi.fn().mockResolvedValue({ cursor: '0', keys: [] }),
+  }),
 }));
 
 const app = createApp();

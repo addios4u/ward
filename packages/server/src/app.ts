@@ -12,7 +12,7 @@ import authRouter from './routes/auth.js';
 import metricsRouter from './routes/metrics.js';
 import logsRouter from './routes/logs.js';
 import { WsManager } from './websocket/WsManager.js';
-import { getPubClient } from './lib/redis.js';
+import { getSessionStoreClient } from './lib/redis.js';
 import { config } from './config/index.js';
 
 export function createApp() {
@@ -51,7 +51,7 @@ export function createApp() {
   }
 
   const store = new RedisStore({
-    client: getPubClient(),
+    client: getSessionStoreClient() as any,
     prefix: 'ward:session:',
   });
 

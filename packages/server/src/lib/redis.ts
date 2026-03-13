@@ -147,6 +147,30 @@ export async function safeGet(key: string): Promise<string | null> {
 }
 
 /**
+ * connect-redis v9용 ioredis 어댑터
+ * connect-redis v9는 node-redis v4 스타일 API를 기대하므로 ioredis를 래핑
+ */
+export function getSessionStoreClient() {
+  const client = getPubClient();
+  return {
+    get: (key: string) => client.get(key),
+    set: (key: string, value: string, options?: { PX?: number; EX?: number }) => {
+      if (options?.PX) return client.set(key, value, 'PX', options.PX);
+      if (options?.EX) return client.set(key, value, 'EX', options.EX);
+      return client.set(key, value);
+    },
+    expire: (key: string, ttl: number) => client.expire(key, ttl),
+    expiretime: (key: string) => client.expiretime(key),
+    del: (key: string | string[]) =>
+      Array.isArray(key) ? client.del(...key) : client.del(key),
+    mget: (...keys: string[]) => client.mget(...keys),
+    scan: (cursor: string, options: { MATCH: string; COUNT: number }) =>
+      client.scan(cursor, 'MATCH', options.MATCH, 'COUNT', options.COUNT)
+        .then(([nextCursor, keys]) => ({ cursor: nextCursor, keys })),
+  };
+}
+
+/**
  * Redis 연결 종료 (서버 종료 시 호출)
  */
 export async function closeRedis(): Promise<void> {
