@@ -33,6 +33,7 @@ export function useWebSocket(
     if (serverId) {
       const subscribeOnOpen = () => {
         ws.subscribe('metrics', serverId);
+        ws.subscribe('logs', serverId);
         ws.subscribe('status', serverId);
       };
 

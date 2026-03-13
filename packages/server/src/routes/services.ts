@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { getDb, schema } from '../db/index.js';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { sessionAuth } from '../middleware/sessionAuth.js';
 
 const router: Router = Router();
@@ -45,12 +45,17 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction): Promis
           };
         }
 
-        // 해당 서버의 최신 프로세스 목록 조회 (limit으로 체인 종료)
+        // 해당 서버의 최신 시점 프로세스 목록 조회
         const processList = await db
           .select()
           .from(schema.processes)
-          .where(eq(schema.processes.serverId, server.id))
-          .limit(10000);
+          .where(
+            and(
+              eq(schema.processes.serverId, server.id),
+              eq(schema.processes.collectedAt, latest.collectedAt),
+            )
+          )
+          .limit(1000);
 
         return {
           serverId: server.id,
@@ -103,12 +108,17 @@ processesRouter.get('/:id/processes', async (req: Request, res: Response, next: 
       return;
     }
 
-    // 해당 서버의 최신 프로세스 목록 조회 (limit으로 체인 종료)
+    // 해당 서버의 최신 시점 프로세스 목록 조회
     const processList = await db
       .select()
       .from(schema.processes)
-      .where(eq(schema.processes.serverId, id))
-      .limit(10000);
+      .where(
+        and(
+          eq(schema.processes.serverId, id),
+          eq(schema.processes.collectedAt, latest.collectedAt),
+        )
+      )
+      .limit(1000);
 
     res.json({ processes: processList, collectedAt: latest.collectedAt });
   } catch (err) {

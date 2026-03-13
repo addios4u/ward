@@ -12,12 +12,10 @@ export class WardWebSocket {
   private shouldReconnect = true;
 
   constructor(url?: string) {
-    const serverUrl =
-      typeof import.meta !== 'undefined' && import.meta.env
-        ? (import.meta.env['VITE_SERVER_URL'] ?? 'http://localhost:4000')
-        : 'http://localhost:4000';
-    // http -> ws, https -> wss 변환
-    this.url = url ?? serverUrl.replace(/^http/, 'ws') + '/ws';
+    // 현재 호스트 기반으로 WebSocket URL 생성 (Nginx 경유 접속 대응)
+    const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = typeof window !== 'undefined' ? window.location.host : 'localhost:4000';
+    this.url = url ?? `${protocol}//${host}/ws`;
   }
 
   // 연결 시작

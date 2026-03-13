@@ -93,6 +93,7 @@ vi.mock('../../src/db/index.js', () => ({
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((field, value) => ({ field, value })),
   desc: vi.fn((field) => ({ field, direction: 'desc' })),
+  and: vi.fn((...conditions) => ({ and: conditions })),
 }));
 
 vi.mock('express-session', () => {
