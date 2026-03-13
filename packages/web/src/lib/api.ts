@@ -49,7 +49,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     }
     throw new ApiError(errorData.error ?? `HTTP 오류: ${res.status}`, {
       requireCaptcha: errorData.requireCaptcha,
-      retryAfter: errorData.retryAfter,
+      retryAfter: errorData.retryAfter ?? errorData.remainingSeconds,
     });
   }
 

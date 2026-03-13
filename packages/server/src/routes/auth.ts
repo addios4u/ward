@@ -45,8 +45,9 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction): P
     const blocked = await loginGuard.isBlocked(ip);
     if (blocked) {
       const remainingSeconds = await loginGuard.getBlockRemainingSeconds(ip);
+      const remainingMinutes = Math.ceil(remainingSeconds / 60);
       res.status(429).json({
-        error: `로그인 시도 횟수 초과로 차단되었습니다. ${remainingSeconds}초 후에 다시 시도하세요.`,
+        error: `로그인 시도 횟수 초과로 차단되었습니다. ${remainingMinutes}분 후에 다시 시도하세요.`,
         remainingSeconds,
       });
       return;
