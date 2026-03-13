@@ -7,7 +7,7 @@ import { safePublish, safeSet, REDIS_CHANNELS, REDIS_KEYS } from '../lib/redis.j
 // serverIdentify가 req에 첨부하는 서버 정보 타입
 type IdentifiedRequest = Request & { server: typeof schema.servers.$inferSelect };
 
-const router = Router();
+const router: Router = Router();
 
 // POST /api/agent/register — 에이전트 자동 등록 (인증 없음)
 router.post('/register', async (req: Request, res: Response, next: NextFunction): Promise<void> => {

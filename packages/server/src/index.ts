@@ -19,13 +19,19 @@ async function main() {
   const { httpServer, wsManager } = createHttpServer();
   const { port, host } = config.server;
 
-  // 데이터 자동 정리 서비스 시작
-  const cleanupService = new CleanupService();
-  cleanupService.start();
+  // WARD_LEADER=true 인 인스턴스에서만 백그라운드 작업 실행 (멀티 인스턴스 중복 방지)
+  const isLeader = process.env.WARD_LEADER !== 'false';
 
-  // 서버 offline 감지 스케줄러 시작
+  const cleanupService = new CleanupService();
   const heartbeatMonitor = new HeartbeatMonitor();
-  heartbeatMonitor.start();
+
+  if (isLeader) {
+    cleanupService.start();
+    heartbeatMonitor.start();
+    console.log('백그라운드 서비스 시작 (리더 인스턴스)');
+  } else {
+    console.log('백그라운드 서비스 건너뜀 (팔로워 인스턴스)');
+  }
 
   // 프로세스 종료 시 정리
   const shutdown = async () => {

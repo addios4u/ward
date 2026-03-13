@@ -1,10 +1,10 @@
-import Redis from 'ioredis';
+import Redis, { type RedisOptions } from 'ioredis';
 import { config } from '../config/index.js';
 
 // Redis 연결 옵션
-function createRedisOptions(): Redis.RedisOptions {
+function createRedisOptions(): RedisOptions {
   // REDIS_URL이 있으면 URL 방식 사용, 없으면 개별 설정 사용
-  const options: Redis.RedisOptions = {
+  const options: RedisOptions = {
     host: config.redis.host,
     port: config.redis.port,
     password: config.redis.password || undefined,
