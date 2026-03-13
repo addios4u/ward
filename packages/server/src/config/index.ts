@@ -11,7 +11,17 @@ export const config = {
     nodeEnv: process.env.NODE_ENV ?? 'development',
   },
   db: {
-    url: process.env.DATABASE_URL ?? '',
+    get url() {
+      if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('${')) {
+        return process.env.DATABASE_URL;
+      }
+      const host = process.env.POSTGRES_HOST ?? 'localhost';
+      const port = process.env.POSTGRES_PORT ?? '5432';
+      const db = process.env.POSTGRES_DB ?? 'ward';
+      const user = process.env.POSTGRES_USER ?? 'ward';
+      const password = process.env.POSTGRES_PASSWORD ?? '';
+      return `postgresql://${user}:${password}@${host}:${port}/${db}`;
+    },
     host: process.env.POSTGRES_HOST ?? 'localhost',
     port: parseInt(process.env.POSTGRES_PORT ?? '5432', 10),
     database: process.env.POSTGRES_DB ?? 'ward',
