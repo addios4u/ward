@@ -1,25 +1,18 @@
-'use client';
-
 import React from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
+import { useNavigate, useLocation, Link, Outlet } from 'react-router-dom';
 
-// 대시보드 레이아웃 — 네비게이션 (인증은 미들웨어가 처리)
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const router = useRouter();
-  const pathname = usePathname();
+// 대시보드 레이아웃 — 네비게이션 (인증은 App.tsx의 PrivateRoute가 처리)
+export function DashboardLayout() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   const handleLogout = async () => {
     // 로그아웃 API 호출 후 로그인 페이지로 이동
-    await fetch(`${process.env['NEXT_PUBLIC_SERVER_URL'] ?? 'http://localhost:4000'}/api/auth/logout`, {
+    await fetch(`${import.meta.env.VITE_SERVER_URL ?? 'http://localhost:4000'}/api/auth/logout`, {
       method: 'POST',
       credentials: 'include',
     }).catch(() => {});
-    router.push('/login');
+    navigate('/login');
   };
 
   // 현재 경로에 따라 active 탭 판별
@@ -36,23 +29,23 @@ export default function DashboardLayout({
       <nav className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <Link href="/" className="text-xl font-bold text-gray-900">
+            <Link to="/" className="text-xl font-bold text-gray-900">
               Ward
             </Link>
             <Link
-              href="/"
+              to="/"
               className={`text-sm pb-1 ${isServers ? activeCls : inactiveCls}`}
             >
               서버
             </Link>
             <Link
-              href="/services"
+              to="/services"
               className={`text-sm pb-1 ${isServices ? activeCls : inactiveCls}`}
             >
               서비스
             </Link>
             <Link
-              href="/settings"
+              to="/settings"
               className={`text-sm pb-1 ${isSettings ? activeCls : inactiveCls}`}
             >
               설정
@@ -67,8 +60,10 @@ export default function DashboardLayout({
         </div>
       </nav>
 
-      {/* 본문 */}
-      <main className="max-w-7xl mx-auto px-6 py-8">{children}</main>
+      {/* 본문 — 자식 라우트 렌더링 */}
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        <Outlet />
+      </main>
     </div>
   );
 }

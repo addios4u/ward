@@ -1,7 +1,5 @@
-'use client';
-
 import React, { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
+import { Link, useParams } from 'react-router-dom';
 import { serversApi } from '@/lib/api';
 import { MetricsChart } from '@/components/dashboard/MetricsChart';
 import { LogViewer } from '@/components/dashboard/LogViewer';
@@ -13,10 +11,6 @@ import { useMetrics } from '@/hooks/useMetrics';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { ServerStatusResponse, Log, LogLevel, WsMessage } from '@/types';
 
-interface ServerDetailPageProps {
-  params: { id: string };
-}
-
 // 바이트를 GB로 변환
 function formatGB(bytes: number | null): string {
   if (bytes === null) return '-';
@@ -24,12 +18,13 @@ function formatGB(bytes: number | null): string {
 }
 
 // 서버 상세 페이지
-export default function ServerDetailPage({ params }: ServerDetailPageProps) {
-  const { id } = params;
+export function ServerDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const serverId = id!;
   const [activeTab, setActiveTab] = useState<'metrics' | 'logs'>('metrics');
   const [statusData, setStatusData] = useState<ServerStatusResponse | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
-  const { metrics, loading: metricsLoading } = useMetrics(id);
+  const { metrics, loading: metricsLoading } = useMetrics(serverId);
 
   // 로그 탭 상태
   const [logs, setLogs] = useState<Log[]>([]);
@@ -39,10 +34,10 @@ export default function ServerDetailPage({ params }: ServerDetailPageProps) {
 
   const loadStatus = useCallback(() => {
     serversApi
-      .getStatus(id)
+      .getStatus(serverId)
       .then(setStatusData)
       .catch((err: Error) => setStatusError(err.message));
-  }, [id]);
+  }, [serverId]);
 
   useEffect(() => {
     loadStatus();
@@ -56,7 +51,7 @@ export default function ServerDetailPage({ params }: ServerDetailPageProps) {
     (selectedLevel: LogLevel | '') => {
       setLogsLoading(true);
       serversApi
-        .getLogs(id, { level: selectedLevel || undefined, limit: 100 })
+        .getLogs(serverId, { level: selectedLevel || undefined, limit: 100 })
         .then((res) => {
           setLogs(res.logs);
           setLogsLoading(false);
@@ -66,7 +61,7 @@ export default function ServerDetailPage({ params }: ServerDetailPageProps) {
           setLogsLoading(false);
         });
     },
-    [id]
+    [serverId]
   );
 
   // 로그 탭 활성화 시 로그 로드
@@ -89,7 +84,7 @@ export default function ServerDetailPage({ params }: ServerDetailPageProps) {
     [logLevel, activeTab]
   );
 
-  useWebSocket(handleMessage, id);
+  useWebSocket(handleMessage, serverId);
 
   const latest = metrics[metrics.length - 1];
 
@@ -100,7 +95,7 @@ export default function ServerDetailPage({ params }: ServerDetailPageProps) {
     <div className="space-y-6">
       {/* 헤더 */}
       <div className="flex items-center gap-3">
-        <Link href="/" className="text-gray-400 hover:text-gray-600 text-sm">
+        <Link to="/" className="text-gray-400 hover:text-gray-600 text-sm">
           ← 서버 목록
         </Link>
       </div>

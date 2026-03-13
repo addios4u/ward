@@ -1,7 +1,5 @@
-'use client';
-
 import React, { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import { servicesApi } from '@/lib/api';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
@@ -17,8 +15,8 @@ function formatMB(bytes: number | null): string {
 }
 
 // 서비스 목록 페이지
-export default function ServicesPage() {
-  const router = useRouter();
+export function ServicesPage() {
+  const navigate = useNavigate();
   const [data, setData] = useState<ServicesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +98,7 @@ export default function ServicesPage() {
               {rows.map((row) => (
                 <tr
                   key={`${row.serverId}-${row.pid}`}
-                  onClick={() => router.push(`/services/${row.serverId}/${row.pid}`)}
+                  onClick={() => navigate(`/services/${row.serverId}/${row.pid}`)}
                   className="hover:bg-gray-50 cursor-pointer"
                 >
                   <td className="px-4 py-3 font-medium text-gray-900">

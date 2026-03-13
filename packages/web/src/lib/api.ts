@@ -9,11 +9,11 @@ import type {
   AdminUser,
 } from '@/types';
 
-// 서버 URL (환경변수에서 읽음)
+// 서버 URL (환경변수에서 읽음, Vite는 import.meta.env 사용)
 const SERVER_URL =
-  typeof window !== 'undefined'
-    ? (process.env['NEXT_PUBLIC_SERVER_URL'] ?? 'http://localhost:4000')
-    : (process.env['NEXT_PUBLIC_SERVER_URL'] ?? 'http://localhost:4000');
+  typeof import.meta !== 'undefined' && import.meta.env
+    ? (import.meta.env['VITE_SERVER_URL'] ?? 'http://localhost:4000')
+    : 'http://localhost:4000';
 
 // 추가 에러 정보를 포함하는 커스텀 에러 클래스
 class ApiError extends Error {

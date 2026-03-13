@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useEffect, useCallback } from 'react';
 import { serversApi } from '@/lib/api';
 import type { Metric, WsMessage } from '@/types';

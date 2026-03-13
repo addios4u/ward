@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useEffect, useState, useCallback } from 'react';
 import { serversApi, usersApi } from '@/lib/api';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
@@ -10,7 +8,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import type { Server, AdminUser } from '@/types';
 
 // 설정 페이지
-export default function SettingsPage() {
+export function SettingsPage() {
   // 서버 관리 상태
   const [servers, setServers] = useState<Server[]>([]);
   const [serversLoading, setServersLoading] = useState(true);
@@ -289,7 +287,7 @@ export default function SettingsPage() {
               <div className="flex justify-between">
                 <span className="text-gray-500">서버 URL</span>
                 <span className="font-mono text-xs">
-                  {process.env['NEXT_PUBLIC_SERVER_URL'] ?? 'http://localhost:4000'}
+                  {import.meta.env.VITE_SERVER_URL ?? 'http://localhost:4000'}
                 </span>
               </div>
             </div>

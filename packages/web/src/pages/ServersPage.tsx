@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useEffect, useState, useCallback } from 'react';
 import { serversApi } from '@/lib/api';
 import { ServerCard } from '@/components/dashboard/ServerCard';
@@ -32,7 +30,7 @@ function groupServers(servers: Server[]): { groupName: string; servers: Server[]
 }
 
 // 전체 서버 목록 페이지
-export default function DashboardPage() {
+export function ServersPage() {
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

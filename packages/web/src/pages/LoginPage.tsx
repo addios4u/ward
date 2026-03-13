@@ -1,11 +1,9 @@
-'use client';
-
 import React, { useState } from 'react';
 import { authApi } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 
 // 로그인 페이지
-export default function LoginPage() {
+export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +17,7 @@ export default function LoginPage() {
 
   // CAPTCHA 로드
   const loadCaptcha = async () => {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:4000'}/api/auth/captcha`);
+    const res = await fetch(`${import.meta.env.VITE_SERVER_URL ?? 'http://localhost:4000'}/api/auth/captcha`);
     const data = await res.json() as { token: string; question: string };
     setCaptchaToken(data.token);
     setCaptchaQuestion(data.question);
@@ -37,7 +35,7 @@ export default function LoginPage() {
         password,
         captchaRequired ? { token: captchaToken, answer: captchaAnswer } : undefined
       );
-      // 전체 페이지 로드로 쿠키를 즉시 반영 (router.push는 미들웨어 쿠키 인식 지연 문제 있음)
+      // 전체 페이지 로드로 쿠키를 즉시 반영
       window.location.href = '/';
     } catch (err: unknown) {
       if (err instanceof Error) {

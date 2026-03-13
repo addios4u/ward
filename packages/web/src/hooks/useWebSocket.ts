@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useRef, useCallback } from 'react';
 import { getWebSocket } from '@/lib/websocket';
 import type { WsMessage } from '@/types';

@@ -1,7 +1,5 @@
-'use client';
-
 import React, { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
+import { Link, useParams } from 'react-router-dom';
 import { servicesApi, serversApi } from '@/lib/api';
 import { LogViewer } from '@/components/dashboard/LogViewer';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
@@ -12,10 +10,6 @@ import type { Log, LogLevel, WsMessage, ServiceProcess, ServiceServer } from '@/
 
 const POLL_INTERVAL_MS = 30_000;
 
-interface ServiceDetailPageProps {
-  params: { serverId: string; pid: string };
-}
-
 // 바이트를 MB로 변환
 function formatMB(bytes: number | null): string {
   if (bytes === null) return '-';
@@ -23,9 +17,9 @@ function formatMB(bytes: number | null): string {
 }
 
 // 서비스 상세 페이지
-export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
-  const { serverId, pid } = params;
-  const pidNum = parseInt(pid, 10);
+export function ServiceDetailPage() {
+  const { serverId, pid } = useParams<{ serverId: string; pid: string }>();
+  const pidNum = parseInt(pid!, 10);
 
   const [process, setProcess] = useState<ServiceProcess | null>(null);
   const [serverInfo, setServerInfo] = useState<ServiceServer | null>(null);
@@ -70,7 +64,7 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
     (selectedLevel: LogLevel | '', sourceName?: string) => {
       setLogsLoading(true);
       serversApi
-        .getLogs(serverId, {
+        .getLogs(serverId!, {
           level: selectedLevel || undefined,
           limit: 100,
           source: sourceName,
@@ -121,7 +115,7 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
     <div className="space-y-6">
       {/* 헤더 */}
       <div className="flex items-center gap-3">
-        <Link href="/services" className="text-gray-400 hover:text-gray-600 text-sm">
+        <Link to="/services" className="text-gray-400 hover:text-gray-600 text-sm">
           ← 서비스 목록
         </Link>
       </div>

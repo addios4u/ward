@@ -1,5 +1,5 @@
 import React from 'react';
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import type { Server } from '@/types';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -18,7 +18,7 @@ export function ServerCard({ server }: ServerCardProps) {
   const location = [server.city, server.country].filter(Boolean).join(', ');
 
   return (
-    <Link href={`/servers/${server.id}`}>
+    <Link to={`/servers/${server.id}`}>
       <Card className="hover:shadow-md transition-shadow duration-200 cursor-pointer">
         <CardBody>
           <div className="flex items-start justify-between">

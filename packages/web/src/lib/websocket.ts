@@ -13,8 +13,8 @@ export class WardWebSocket {
 
   constructor(url?: string) {
     const serverUrl =
-      typeof window !== 'undefined'
-        ? (process.env['NEXT_PUBLIC_SERVER_URL'] ?? 'http://localhost:4000')
+      typeof import.meta !== 'undefined' && import.meta.env
+        ? (import.meta.env['VITE_SERVER_URL'] ?? 'http://localhost:4000')
         : 'http://localhost:4000';
     // http -> ws, https -> wss 변환
     this.url = url ?? serverUrl.replace(/^http/, 'ws') + '/ws';
