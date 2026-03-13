@@ -3,7 +3,7 @@ import { schema } from '../db/index.js';
 import { config } from '../config/index.js';
 import { lt } from 'drizzle-orm';
 
-// 오래된 메트릭과 로그를 주기적으로 삭제하는 서비스
+// 오래된 메트릭, 프로세스, 로그를 주기적으로 삭제하는 서비스
 export class CleanupService {
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private readonly metricsDays: number;
@@ -44,11 +44,11 @@ export class CleanupService {
   }
 
   // 오래된 데이터 삭제 실행
-  async cleanup(): Promise<{ deletedMetrics: number; deletedLogs: number }> {
+  async cleanup(): Promise<{ deletedMetrics: number; deletedLogs: number; deletedProcesses: number }> {
     const db = getDb();
     const now = new Date();
 
-    // 메트릭 기준 날짜
+    // 메트릭 기준 날짜 (30일)
     const metricsThreshold = new Date(now);
     metricsThreshold.setDate(metricsThreshold.getDate() - this.metricsDays);
 
@@ -56,25 +56,27 @@ export class CleanupService {
     const logsThreshold = new Date(now);
     logsThreshold.setDate(logsThreshold.getDate() - this.logsDays);
 
-    // 오래된 메트릭 삭제
-    const deletedMetricsResult = await db
+    // processes도 30일 기준으로 정리
+    const processesThreshold = new Date(now);
+    processesThreshold.setDate(processesThreshold.getDate() - this.metricsDays);
+
+    // 오래된 메트릭 삭제 (.returning() 제거로 메모리 절약)
+    await db
       .delete(schema.metrics)
-      .where(lt(schema.metrics.collectedAt, metricsThreshold))
-      .returning({ id: schema.metrics.id });
+      .where(lt(schema.metrics.collectedAt, metricsThreshold));
+
+    // 오래된 프로세스 삭제
+    await db
+      .delete(schema.processes)
+      .where(lt(schema.processes.collectedAt, processesThreshold));
 
     // 오래된 로그 삭제
-    const deletedLogsResult = await db
+    await db
       .delete(schema.logs)
-      .where(lt(schema.logs.loggedAt, logsThreshold))
-      .returning({ id: schema.logs.id });
+      .where(lt(schema.logs.loggedAt, logsThreshold));
 
-    const deletedMetrics = deletedMetricsResult.length;
-    const deletedLogs = deletedLogsResult.length;
+    console.log('데이터 정리 완료');
 
-    console.log(
-      `데이터 정리 완료 - 메트릭 ${deletedMetrics}건, 로그 ${deletedLogs}건 삭제`
-    );
-
-    return { deletedMetrics, deletedLogs };
+    return { deletedMetrics: 0, deletedLogs: 0, deletedProcesses: 0 };
   }
 }
