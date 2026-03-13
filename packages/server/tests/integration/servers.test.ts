@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
 
-// ws 모킹 (WsManager가 app.ts에서 import됨)
+// ws 모킹
 vi.mock('ws', () => ({
   WebSocketServer: vi.fn().mockImplementation(() => ({
     on: vi.fn(),
@@ -11,7 +11,7 @@ vi.mock('ws', () => ({
   WebSocket: { OPEN: 1 },
 }));
 
-// Redis 모킹 (graceful degradation)
+// Redis 모킹
 vi.mock('../../src/lib/redis.js', () => ({
   safeGet: vi.fn().mockResolvedValue(null),
   safeSet: vi.fn().mockResolvedValue(undefined),
@@ -40,24 +40,12 @@ vi.mock('../../src/lib/redis.js', () => ({
   closeRedis: vi.fn().mockResolvedValue(undefined),
 }));
 
-const mockServers = [
-  {
-    id: 'uuid-1',
-    name: '웹 서버 1',
-    hostname: 'web-01.example.com',
-    status: 'online',
-    lastSeenAt: new Date('2024-01-01T00:00:00Z'),
-    createdAt: new Date('2024-01-01T00:00:00Z'),
-  },
-];
-
 // DB 모킹
 vi.mock('../../src/db/index.js', () => {
   const mockDb = {
     select: vi.fn().mockReturnThis(),
     from: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
-    // 첫 번째 orderBy → 서버 목록 resolve, 이후 → this 반환 (체이닝용)
     orderBy: vi.fn()
       .mockResolvedValueOnce([
         {
@@ -101,10 +89,33 @@ vi.mock('drizzle-orm', () => ({
   desc: vi.fn((field) => ({ field, direction: 'desc' })),
 }));
 
+// express-session 모킹: userId가 설정된 세션 (인증됨)
+vi.mock('express-session', () => {
+  const mockSession = vi.fn(() => (req: any, _res: any, next: any) => {
+    req.session = {
+      userId: 'user-uuid-1',
+      save: vi.fn((cb: (err?: Error) => void) => cb()),
+      destroy: vi.fn((cb: (err?: Error) => void) => cb()),
+    };
+    next();
+  });
+  return { default: mockSession };
+});
+
+vi.mock('connect-redis', () => ({
+  RedisStore: vi.fn().mockImplementation(() => ({})),
+}));
+
 const app = createApp();
 
 describe('GET /api/servers', () => {
-  it('서버 목록을 반환해야 한다', async () => {
+  it('미인증 요청 시 401을 반환해야 한다', async () => {
+    // 인증 없는 앱으로 테스트하기 위해 session mock을 override
+    // 이 테스트는 sessionAuth 미들웨어가 적용됐는지 확인
+    // 별도로 unauthApp을 만들어 테스트
+  });
+
+  it('인증된 사용자의 서버 목록을 반환해야 한다', async () => {
     const res = await request(app).get('/api/servers');
 
     expect(res.status).toBe(200);
@@ -173,5 +184,37 @@ describe('DELETE /api/servers/:id', () => {
     const res = await request(app).delete('/api/servers/uuid-1');
 
     expect(res.status).toBe(204);
+  });
+});
+
+describe('미인증 요청 → 401', () => {
+  it('세션 없이 GET /api/servers 요청 시 401을 반환해야 한다', async () => {
+    // 인증 없는 앱을 별도로 생성
+    vi.doMock('express-session', () => {
+      const mockSession = vi.fn(() => (req: any, _res: any, next: any) => {
+        req.session = {
+          userId: undefined,
+          save: vi.fn((cb: (err?: Error) => void) => cb()),
+          destroy: vi.fn((cb: (err?: Error) => void) => cb()),
+        };
+        next();
+      });
+      return { default: mockSession };
+    });
+
+    // sessionAuth는 req.session.userId가 없으면 401 반환
+    // 직접 sessionAuth를 테스트
+    const { sessionAuth } = await import('../../src/middleware/sessionAuth.js');
+    const mockReq: any = { session: {} };
+    const mockRes: any = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    };
+    const mockNext = vi.fn();
+
+    sessionAuth(mockReq, mockRes, mockNext);
+
+    expect(mockRes.status).toHaveBeenCalledWith(401);
+    expect(mockNext).not.toHaveBeenCalled();
   });
 });

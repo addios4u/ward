@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
 
-// ws 모킹 (WsManager가 app.ts에서 import됨)
+// ws 모킹
 vi.mock('ws', () => ({
   WebSocketServer: vi.fn().mockImplementation(() => ({
     on: vi.fn(),
@@ -11,7 +11,7 @@ vi.mock('ws', () => ({
   WebSocket: { OPEN: 1 },
 }));
 
-// Redis 모킹 (graceful degradation)
+// Redis 모킹
 vi.mock('../../src/lib/redis.js', () => ({
   safeGet: vi.fn().mockResolvedValue(null),
   safeSet: vi.fn().mockResolvedValue(undefined),
@@ -42,21 +42,7 @@ vi.mock('../../src/lib/redis.js', () => ({
 
 // DB 모킹
 vi.mock('../../src/db/index.js', () => {
-  const mockMetrics = [
-    {
-      id: 1,
-      serverId: 'server-uuid-1',
-      collectedAt: new Date('2024-01-01T00:00:00Z'),
-      cpuUsage: 45.5,
-      memTotal: 8589934592,
-      memUsed: 4294967296,
-      diskUsage: null,
-      networkIo: null,
-      loadAvg: [1.0, 0.8, 0.6],
-    },
-  ];
-
-  const mockServer = { id: 'server-uuid-1' };
+  const mockServer = { id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' };
 
   const mockDb = {
     select: vi.fn().mockReturnThis(),
@@ -81,38 +67,53 @@ vi.mock('drizzle-orm', () => ({
   desc: vi.fn((field) => ({ field, direction: 'desc' })),
 }));
 
-// jwt 모킹 — 인증 통과
-vi.mock('jsonwebtoken', () => ({
-  default: {
-    verify: vi.fn(() => ({ userId: 'user-uuid-1', email: 'admin@example.com' })),
-    sign: vi.fn(() => 'mocked-token'),
-  },
+// express-session 모킹: 인증된 세션
+vi.mock('express-session', () => {
+  const mockSession = vi.fn(() => (req: any, _res: any, next: any) => {
+    req.session = {
+      userId: 'user-uuid-1',
+      save: vi.fn((cb: (err?: Error) => void) => cb()),
+      destroy: vi.fn((cb: (err?: Error) => void) => cb()),
+    };
+    next();
+  });
+  return { default: mockSession };
+});
+
+vi.mock('connect-redis', () => ({
+  RedisStore: vi.fn().mockImplementation(() => ({})),
 }));
 
 const app = createApp();
-const authHeader = 'Bearer valid-token';
+const validServerId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
 describe('GET /api/servers/:id/metrics', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('JWT 인증 없이 접근 시 401을 반환해야 한다', async () => {
-    const res = await request(app).get('/api/servers/server-uuid-1/metrics');
-    expect(res.status).toBe(401);
+  it('세션 인증 없이 접근 시 401을 반환해야 한다', async () => {
+    // sessionAuth를 직접 테스트
+    const { sessionAuth } = await import('../../src/middleware/sessionAuth.js');
+    const mockReq: any = { session: {} };
+    const mockRes: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    const mockNext = vi.fn();
+
+    sessionAuth(mockReq, mockRes, mockNext);
+
+    expect(mockRes.status).toHaveBeenCalledWith(401);
   });
 
-  it('유효한 토큰으로 메트릭 히스토리를 반환해야 한다', async () => {
+  it('유효한 세션으로 메트릭 히스토리를 반환해야 한다', async () => {
     const { getDb } = await import('../../src/db/index.js');
     const mockDb = getDb();
 
-    // 서버 조회 → 메트릭 조회
     vi.mocked(mockDb.limit)
-      .mockResolvedValueOnce([{ id: 'server-uuid-1' }])
+      .mockResolvedValueOnce([{ id: validServerId }])
       .mockResolvedValueOnce([
         {
           id: 1,
-          serverId: 'server-uuid-1',
+          serverId: validServerId,
           collectedAt: new Date('2024-01-01T00:00:00Z'),
           cpuUsage: 45.5,
           memTotal: 8589934592,
@@ -124,8 +125,7 @@ describe('GET /api/servers/:id/metrics', () => {
       ]);
 
     const res = await request(app)
-      .get('/api/servers/server-uuid-1/metrics')
-      .set('Authorization', authHeader);
+      .get(`/api/servers/${validServerId}/metrics`);
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('metrics');
@@ -138,10 +138,17 @@ describe('GET /api/servers/:id/metrics', () => {
     vi.mocked(mockDb.limit).mockResolvedValueOnce([]);
 
     const res = await request(app)
-      .get('/api/servers/nonexistent/metrics')
-      .set('Authorization', authHeader);
+      .get(`/api/servers/${validServerId}/metrics`);
 
     expect(res.status).toBe(404);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  it('잘못된 UUID 형식의 id로 요청 시 400을 반환해야 한다', async () => {
+    const res = await request(app)
+      .get('/api/servers/invalid-id/metrics');
+
+    expect(res.status).toBe(400);
     expect(res.body).toHaveProperty('error');
   });
 });
@@ -154,7 +161,7 @@ describe('GET /api/servers/:id/status', () => {
     vi.mocked(mockDb.limit)
       .mockResolvedValueOnce([
         {
-          id: 'server-uuid-1',
+          id: validServerId,
           name: '웹 서버',
           hostname: 'web-01',
           status: 'online',
@@ -164,8 +171,7 @@ describe('GET /api/servers/:id/status', () => {
       .mockResolvedValueOnce([]);
 
     const res = await request(app)
-      .get('/api/servers/server-uuid-1/status')
-      .set('Authorization', authHeader);
+      .get(`/api/servers/${validServerId}/status`);
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('server');

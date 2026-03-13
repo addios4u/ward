@@ -93,10 +93,11 @@ describe('WsManager', () => {
     const mockWsClient = {
       readyState: 1,
       send: vi.fn(),
+      close: vi.fn(),
       on: (event: string, listener: (...args: unknown[]) => void) => wsEventEmitter.on(event, listener),
     };
 
-    mockWss.emit('connection', mockWsClient, {});
+    mockWss.emit('connection', mockWsClient, { headers: { cookie: 'connect.sid=test-session-id' } });
 
     // 구독 메시지 시뮬레이션
     const subscribeMsg = JSON.stringify({
@@ -124,10 +125,11 @@ describe('WsManager', () => {
     const mockWsClient = {
       readyState: 1,
       send: vi.fn(),
+      close: vi.fn(),
       on: (event: string, listener: (...args: unknown[]) => void) => wsEventEmitter.on(event, listener),
     };
 
-    mockWss.emit('connection', mockWsClient, {});
+    mockWss.emit('connection', mockWsClient, { headers: { cookie: 'connect.sid=test-session-id' } });
 
     // metrics 채널 구독
     wsEventEmitter.emit('message', Buffer.from(JSON.stringify({
@@ -160,10 +162,11 @@ describe('WsManager', () => {
     const mockWsClient = {
       readyState: 1,
       send: vi.fn(),
+      close: vi.fn(),
       on: (event: string, listener: (...args: unknown[]) => void) => wsEventEmitter.on(event, listener),
     };
 
-    mockWss.emit('connection', mockWsClient, {});
+    mockWss.emit('connection', mockWsClient, { headers: { cookie: 'connect.sid=test-session-id' } });
 
     // status 채널 구독
     wsEventEmitter.emit('message', Buffer.from(JSON.stringify({

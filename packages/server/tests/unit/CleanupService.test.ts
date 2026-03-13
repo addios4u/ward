@@ -2,8 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // DB 모킹
 vi.mock('../../src/db/index.js', () => {
-  const mockReturning = vi.fn().mockResolvedValue([]);
-  const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+  const mockWhere = vi.fn().mockResolvedValue(undefined);
   const mockDelete = vi.fn().mockReturnValue({ where: mockWhere });
 
   const mockDb = {
@@ -15,6 +14,7 @@ vi.mock('../../src/db/index.js', () => {
     schema: {
       metrics: { collectedAt: 'collected_at', id: 'id' },
       logs: { loggedAt: 'logged_at', id: 'id' },
+      processes: { collectedAt: 'collected_at', id: 'id' },
     },
     closePool: vi.fn(),
   };
@@ -47,33 +47,32 @@ describe('CleanupService', () => {
   });
 
   describe('cleanup()', () => {
-    it('오래된 메트릭과 로그를 삭제하고 삭제 건수를 반환해야 한다', async () => {
+    it('오래된 메트릭, 프로세스, 로그를 삭제해야 한다', async () => {
       const { getDb } = await import('../../src/db/index.js');
       const mockDb = getDb();
 
-      // 메트릭 3건, 로그 5건 삭제된 것으로 모킹
-      const mockReturning = vi.fn()
-        .mockResolvedValueOnce([{ id: 1 }, { id: 2 }, { id: 3 }])  // 메트릭 3건
-        .mockResolvedValueOnce([{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }]); // 로그 5건
-
+      const mockWhere = vi.fn().mockResolvedValue(undefined);
       vi.mocked(mockDb.delete).mockReturnValue({
-        where: vi.fn().mockReturnValue({ returning: mockReturning }),
+        where: mockWhere,
       } as any);
 
       const service = new CleanupService({ metricsDays: 30, logsDays: 7 });
       const result = await service.cleanup();
 
-      expect(result.deletedMetrics).toBe(3);
-      expect(result.deletedLogs).toBe(5);
+      // metrics + processes + logs = 3번 호출
+      expect(mockDb.delete).toHaveBeenCalledTimes(3);
+      expect(result).toHaveProperty('deletedMetrics');
+      expect(result).toHaveProperty('deletedLogs');
+      expect(result).toHaveProperty('deletedProcesses');
     });
 
-    it('삭제된 항목이 없을 때 0을 반환해야 한다', async () => {
+    it('삭제 결과가 0을 반환해야 한다 (.returning() 없음)', async () => {
       const { getDb } = await import('../../src/db/index.js');
       const mockDb = getDb();
 
-      const mockReturning = vi.fn().mockResolvedValue([]);
+      const mockWhere = vi.fn().mockResolvedValue(undefined);
       vi.mocked(mockDb.delete).mockReturnValue({
-        where: vi.fn().mockReturnValue({ returning: mockReturning }),
+        where: mockWhere,
       } as any);
 
       const service = new CleanupService({ metricsDays: 30, logsDays: 7 });
@@ -81,38 +80,24 @@ describe('CleanupService', () => {
 
       expect(result.deletedMetrics).toBe(0);
       expect(result.deletedLogs).toBe(0);
-    });
-
-    it('메트릭과 로그 각각 delete를 호출해야 한다', async () => {
-      const { getDb } = await import('../../src/db/index.js');
-      const mockDb = getDb();
-
-      const mockReturning = vi.fn().mockResolvedValue([]);
-      vi.mocked(mockDb.delete).mockReturnValue({
-        where: vi.fn().mockReturnValue({ returning: mockReturning }),
-      } as any);
-
-      const service = new CleanupService({ metricsDays: 30, logsDays: 7 });
-      await service.cleanup();
-
-      // 메트릭 삭제 + 로그 삭제 = 2번 호출
-      expect(mockDb.delete).toHaveBeenCalledTimes(2);
+      expect(result.deletedProcesses).toBe(0);
     });
 
     it('config 기본값으로 보존 기간이 설정되어야 한다', async () => {
       const { getDb } = await import('../../src/db/index.js');
       const mockDb = getDb();
 
-      const mockReturning = vi.fn().mockResolvedValue([]);
+      const mockWhere = vi.fn().mockResolvedValue(undefined);
       vi.mocked(mockDb.delete).mockReturnValue({
-        where: vi.fn().mockReturnValue({ returning: mockReturning }),
+        where: mockWhere,
       } as any);
 
       // 옵션 없이 생성하면 config 값(30일, 7일) 사용
       const service = new CleanupService();
       await service.cleanup();
 
-      expect(mockDb.delete).toHaveBeenCalledTimes(2);
+      // metrics + processes + logs = 3번 호출
+      expect(mockDb.delete).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -121,19 +106,22 @@ describe('CleanupService', () => {
       const { getDb } = await import('../../src/db/index.js');
       const mockDb = getDb();
 
-      const mockReturning = vi.fn().mockResolvedValue([]);
+      const mockWhere = vi.fn().mockResolvedValue(undefined);
       vi.mocked(mockDb.delete).mockReturnValue({
-        where: vi.fn().mockReturnValue({ returning: mockReturning }),
+        where: mockWhere,
       } as any);
 
       const service = new CleanupService({ intervalMs: 60 * 60 * 1000 });
       service.start();
 
-      // 마이크로태스크(Promise) 처리
+      // 마이크로태스크(Promise) 처리 — 여러 번 await 필요 (async 체이닝)
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
       await Promise.resolve();
 
-      // 즉시 실행 1회: 메트릭 + 로그 = delete 2번 호출
-      expect(vi.mocked(mockDb.delete).mock.calls.length).toBeGreaterThanOrEqual(2);
+      // 즉시 실행 1회: metrics + processes + logs = delete 3번 이상 호출
+      expect(vi.mocked(mockDb.delete).mock.calls.length).toBeGreaterThanOrEqual(3);
 
       service.stop();
     });
@@ -142,20 +130,26 @@ describe('CleanupService', () => {
       const { getDb } = await import('../../src/db/index.js');
       const mockDb = getDb();
 
-      const mockReturning = vi.fn().mockResolvedValue([]);
+      const mockWhere = vi.fn().mockResolvedValue(undefined);
       vi.mocked(mockDb.delete).mockReturnValue({
-        where: vi.fn().mockReturnValue({ returning: mockReturning }),
+        where: mockWhere,
       } as any);
 
       const service = new CleanupService({ intervalMs: 1000 });
       service.start();
 
-      // 즉시 실행 대기
+      // 즉시 실행 완료 대기
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
       await Promise.resolve();
       const callsAfterStart = vi.mocked(mockDb.delete).mock.calls.length;
 
       // 1초 경과 후 추가 실행
       vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
       await Promise.resolve();
 
       expect(vi.mocked(mockDb.delete).mock.calls.length).toBeGreaterThan(callsAfterStart);
@@ -167,13 +161,17 @@ describe('CleanupService', () => {
       const { getDb } = await import('../../src/db/index.js');
       const mockDb = getDb();
 
-      const mockReturning = vi.fn().mockResolvedValue([]);
+      const mockWhere = vi.fn().mockResolvedValue(undefined);
       vi.mocked(mockDb.delete).mockReturnValue({
-        where: vi.fn().mockReturnValue({ returning: mockReturning }),
+        where: mockWhere,
       } as any);
 
       const service = new CleanupService({ intervalMs: 1000 });
       service.start();
+      // 즉시 실행 완료 대기
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
       await Promise.resolve();
 
       service.stop();
@@ -181,6 +179,7 @@ describe('CleanupService', () => {
 
       // stop 후 1초 경과해도 추가 실행 없음
       vi.advanceTimersByTime(1000);
+      await Promise.resolve();
       await Promise.resolve();
 
       expect(vi.mocked(mockDb.delete).mock.calls.length).toBe(callsAfterStop);

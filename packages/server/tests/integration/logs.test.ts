@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
 
-// ws 모킹 (WsManager가 app.ts에서 import됨)
+// ws 모킹
 vi.mock('ws', () => ({
   WebSocketServer: vi.fn().mockImplementation(() => ({
     on: vi.fn(),
@@ -11,7 +11,7 @@ vi.mock('ws', () => ({
   WebSocket: { OPEN: 1 },
 }));
 
-// Redis 모킹 (graceful degradation)
+// Redis 모킹
 vi.mock('../../src/lib/redis.js', () => ({
   safeGet: vi.fn().mockResolvedValue(null),
   safeSet: vi.fn().mockResolvedValue(undefined),
@@ -45,7 +45,7 @@ vi.mock('../../src/db/index.js', () => {
   const mockLogs = [
     {
       id: 1,
-      serverId: 'server-uuid-1',
+      serverId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
       source: 'nginx',
       level: 'error',
       message: '500 Internal Server Error',
@@ -79,37 +79,55 @@ vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions) => conditions),
 }));
 
-// jwt 모킹 — 인증 통과
-vi.mock('jsonwebtoken', () => ({
-  default: {
-    verify: vi.fn(() => ({ userId: 'user-uuid-1', email: 'admin@example.com' })),
-    sign: vi.fn(() => 'mocked-token'),
-  },
+// express-session 모킹: 인증된 세션
+vi.mock('express-session', () => {
+  const mockSession = vi.fn(() => (req: any, _res: any, next: any) => {
+    req.session = {
+      userId: 'user-uuid-1',
+      save: vi.fn((cb: (err?: Error) => void) => cb()),
+      destroy: vi.fn((cb: (err?: Error) => void) => cb()),
+    };
+    next();
+  });
+  return { default: mockSession };
+});
+
+vi.mock('connect-redis', () => ({
+  RedisStore: vi.fn().mockImplementation(() => ({})),
 }));
 
 const app = createApp();
-const authHeader = 'Bearer valid-token';
+const validServerId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
 describe('GET /api/servers/:id/logs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('JWT 인증 없이 접근 시 401을 반환해야 한다', async () => {
-    const res = await request(app).get('/api/servers/server-uuid-1/logs');
-    expect(res.status).toBe(401);
+  it('세션 인증 없이 접근 시 401을 반환해야 한다', async () => {
+    const { sessionAuth } = await import('../../src/middleware/sessionAuth.js');
+    const mockReq: any = { session: {} };
+    const mockRes: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    const mockNext = vi.fn();
+
+    sessionAuth(mockReq, mockRes, mockNext);
+
+    expect(mockRes.status).toHaveBeenCalledWith(401);
   });
 
-  it('유효한 토큰으로 로그 목록을 반환해야 한다', async () => {
+  it('유효한 세션으로 로그 목록을 반환해야 한다', async () => {
     const { getDb } = await import('../../src/db/index.js');
     const mockDb = getDb();
 
-    // 서버 존재 확인용 limit (별도로 재정의)
-    vi.mocked(mockDb.limit).mockReturnThis();
+    vi.mocked(mockDb.limit).mockImplementationOnce(() => ({
+      ...mockDb,
+      then: (resolve: (value: unknown[]) => void) => resolve([{ id: validServerId }]),
+    } as unknown as typeof mockDb));
+
     vi.mocked(mockDb.offset).mockResolvedValueOnce([
       {
         id: 1,
-        serverId: 'server-uuid-1',
+        serverId: validServerId,
         source: 'nginx',
         level: 'error',
         message: '500 Internal Server Error',
@@ -118,19 +136,20 @@ describe('GET /api/servers/:id/logs', () => {
       },
     ]);
 
-    // 서버 exists 체크를 위해 limit이 서버를 반환하도록
-    vi.mocked(mockDb.limit).mockImplementationOnce(() => ({
-      ...mockDb,
-      then: (resolve: (value: unknown[]) => void) => resolve([{ id: 'server-uuid-1' }]),
-    } as unknown as typeof mockDb));
-
     const res = await request(app)
-      .get('/api/servers/server-uuid-1/logs')
-      .set('Authorization', authHeader);
+      .get(`/api/servers/${validServerId}/logs`);
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('logs');
     expect(Array.isArray(res.body.logs)).toBe(true);
+  });
+
+  it('잘못된 UUID 형식의 id로 요청 시 400을 반환해야 한다', async () => {
+    const res = await request(app)
+      .get('/api/servers/invalid-id/logs');
+
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('error');
   });
 
   it('level 쿼리 파라미터로 필터링할 수 있어야 한다', async () => {
@@ -139,14 +158,13 @@ describe('GET /api/servers/:id/logs', () => {
 
     vi.mocked(mockDb.limit).mockImplementationOnce(() => ({
       ...mockDb,
-      then: (resolve: (value: unknown[]) => void) => resolve([{ id: 'server-uuid-1' }]),
+      then: (resolve: (value: unknown[]) => void) => resolve([{ id: validServerId }]),
     } as unknown as typeof mockDb));
 
     vi.mocked(mockDb.offset).mockResolvedValueOnce([]);
 
     const res = await request(app)
-      .get('/api/servers/server-uuid-1/logs?level=error')
-      .set('Authorization', authHeader);
+      .get(`/api/servers/${validServerId}/logs?level=error`);
 
     expect(res.status).toBe(200);
   });
