@@ -1,8 +1,8 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// 루트 .env 파일 로드
-dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
+// 루트 .env 파일 로드 (dist/config/ 기준 4단계 상위 = ward 루트)
+dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
 export const config = {
   server: {
