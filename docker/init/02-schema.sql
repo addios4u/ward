@@ -9,7 +9,11 @@ CREATE TABLE servers (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name         VARCHAR(255) NOT NULL,
   hostname     VARCHAR(255) NOT NULL,
-  api_key      VARCHAR(255) NOT NULL UNIQUE,
+  group_name   VARCHAR(255),
+  public_ip    VARCHAR(45),
+  country      VARCHAR(100),
+  city         VARCHAR(100),
+  isp          VARCHAR(255),
   status       server_status NOT NULL DEFAULT 'unknown',
   last_seen_at TIMESTAMP,
   created_at   TIMESTAMP NOT NULL DEFAULT NOW()
