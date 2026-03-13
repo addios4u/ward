@@ -23,6 +23,9 @@ import { config } from './config/index.js';
 export function createApp() {
   const app = express();
 
+  // Nginx 프록시 환경에서 req.ip가 올바른 클라이언트 IP를 반환하도록 설정
+  app.set('trust proxy', 1);
+
   // 보안 헤더 (crossOriginResourcePolicy는 CORS로 별도 처리)
   app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
