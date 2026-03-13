@@ -1,40 +1,29 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { authApi, serversApi, saveToken, removeToken } from '@/lib/api';
+import { authApi, serversApi } from '@/lib/api';
 
 // fetch 모킹
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
-// localStorage 모킹
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: (key: string) => store[key] ?? null,
-    setItem: (key: string, value: string) => { store[key] = value; },
-    removeItem: (key: string) => { delete store[key]; },
-    clear: () => { store = {}; },
-  };
-})();
-vi.stubGlobal('localStorage', localStorageMock);
+// window.location 모킹
+const locationMock = { href: '' };
+vi.stubGlobal('location', locationMock);
 
 describe('authApi', () => {
   beforeEach(() => {
-    localStorageMock.clear();
     mockFetch.mockReset();
+    locationMock.href = '';
   });
 
-  it('로그인 성공 시 token과 user를 반환해야 한다', async () => {
+  it('로그인 성공 시 user를 반환해야 한다', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        token: 'test-jwt-token',
         user: { id: 'uuid-1', email: 'admin@example.com' },
       }),
     });
 
     const res = await authApi.login('admin@example.com', 'password123');
-
-    expect(res.token).toBe('test-jwt-token');
     expect(res.user.email).toBe('admin@example.com');
   });
 
@@ -52,8 +41,8 @@ describe('authApi', () => {
 
 describe('serversApi', () => {
   beforeEach(() => {
-    localStorageMock.clear();
     mockFetch.mockReset();
+    locationMock.href = '';
   });
 
   it('서버 목록을 조회해야 한다', async () => {
@@ -97,20 +86,50 @@ describe('serversApi', () => {
   });
 });
 
-describe('토큰 관리', () => {
+describe('apiFetch - credentials 및 인터셉터', () => {
   beforeEach(() => {
-    localStorageMock.clear();
+    mockFetch.mockReset();
+    locationMock.href = '';
   });
 
-  it('saveToken이 localStorage에 토큰을 저장해야 한다', () => {
-    saveToken('test-token');
-    expect(localStorageMock.getItem('ward_token')).toBe('test-token');
+  it('모든 요청에 credentials: include가 포함되어야 한다', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ servers: [] }),
+    });
+
+    await serversApi.list();
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ credentials: 'include' })
+    );
   });
 
-  it('removeToken이 localStorage에서 토큰을 삭제해야 한다', () => {
-    localStorageMock.setItem('ward_token', 'test-token');
-    removeToken();
-    expect(localStorageMock.getItem('ward_token')).toBeNull();
+  it('Authorization Bearer 헤더가 없어야 한다', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ servers: [] }),
+    });
+
+    await serversApi.list();
+
+    const callArgs = mockFetch.mock.calls[0];
+    const options = callArgs[1] as RequestInit;
+    const headers = options.headers as Record<string, string>;
+    expect(headers?.['Authorization']).toBeUndefined();
+  });
+
+  it('401 응답 시 /login으로 redirect해야 한다', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: '인증이 필요합니다.' }),
+    });
+
+    await serversApi.list().catch(() => {});
+
+    expect(locationMock.href).toBe('/login');
   });
 });
 

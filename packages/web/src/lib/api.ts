@@ -13,40 +13,24 @@ const SERVER_URL =
     ? (process.env['NEXT_PUBLIC_SERVER_URL'] ?? 'http://localhost:4000')
     : (process.env['NEXT_PUBLIC_SERVER_URL'] ?? 'http://localhost:4000');
 
-// JWT 토큰 가져오기
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('ward_token');
-}
-
-// 토큰 저장
-export function saveToken(token: string): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('ward_token', token);
-}
-
-// 토큰 삭제
-export function removeToken(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem('ward_token');
-}
-
-// 기본 fetch 래퍼
+// 기본 fetch 래퍼 (쿠키 기반 인증)
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
   const res = await fetch(`${SERVER_URL}${path}`, {
     ...options,
     headers,
+    credentials: 'include',
   });
+
+  // 401 응답 시 로그인 페이지로 리다이렉트
+  if (res.status === 401) {
+    window.location.href = '/login';
+    return undefined as unknown as T;
+  }
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({ error: '알 수 없는 오류' }));
