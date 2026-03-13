@@ -76,8 +76,9 @@ describe('ProcessCollector', () => {
     // CPU 사용률 기준 내림차순 정렬 확인
     expect(metrics.processes[0]?.pid).toBe(1234);
     expect(metrics.processes[0]?.name).toBe('node');
-    expect(metrics.processes[0]?.cpuUsage).toBe(25.5);
-    expect(metrics.processes[0]?.memUsage).toBe(512 * 1024 * 1024);
+    // 서버 기대 필드명: cpu, memory
+    expect(metrics.processes[0]?.cpu).toBe(25.5);
+    expect(metrics.processes[0]?.memory).toBe(512 * 1024 * 1024);
     expect(metrics.processes[0]?.status).toBe('running');
   });
 
