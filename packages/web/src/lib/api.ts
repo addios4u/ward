@@ -41,8 +41,9 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({ error: '알 수 없는 오류' }));
-    // 401이지만 requireCaptcha 등 추가 정보가 있으면 에러로 throw (로그인 페이지에서 처리)
-    if (res.status === 401 && !errorData.requireCaptcha) {
+    // 로그인 페이지에서 발생한 401은 redirect 없이 에러로 throw (CAPTCHA 등 처리 위해)
+    const isLoginPage = typeof window !== 'undefined' && window.location.pathname === '/login';
+    if (res.status === 401 && !isLoginPage) {
       window.location.href = '/login';
       return undefined as unknown as T;
     }
