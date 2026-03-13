@@ -31,26 +31,9 @@ export function createApp(): express.Application {
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   }));
 
-  // CORS: ALLOWED_ORIGINS 환경변수로 허용 origin 지정
-  // 미설정 시 self-hosted 환경 특성상 모든 origin 허용 (반영 방식)
-  const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
-    : null;
-
+  // CORS: 인프라 단계(보안 그룹 등)에서 접근 제어하므로 모든 origin 허용
   app.use(cors({
-    origin: (origin, callback) => {
-      // origin이 없는 요청(서버 간 요청 등)은 허용
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-      // ALLOWED_ORIGINS 미설정 시 모든 origin 반영 허용
-      if (!allowedOrigins || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`CORS 정책에 의해 차단됨: ${origin}`));
-      }
-    },
+    origin: true,
     credentials: true,
   }));
 
