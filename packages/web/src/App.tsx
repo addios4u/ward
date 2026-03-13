@@ -5,7 +5,6 @@ import { LoginPage } from './pages/LoginPage';
 import { ServersPage } from './pages/ServersPage';
 import { ServerDetailPage } from './pages/ServerDetailPage';
 import { ServicesPage } from './pages/ServicesPage';
-import { ServiceDetailPage } from './pages/ServiceDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated';
@@ -59,7 +58,6 @@ export default function App() {
           <Route index element={<ServersPage />} />
           <Route path="servers/:id" element={<ServerDetailPage />} />
           <Route path="services" element={<ServicesPage />} />
-          <Route path="services/:serverId/:pid" element={<ServiceDetailPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

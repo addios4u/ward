@@ -94,13 +94,11 @@ export interface WsMessage {
   data: unknown;
 }
 
-// 서비스 프로세스 타입
-export interface ServiceProcess {
-  pid: number;
-  name: string;
-  cpuUsage: number | null;
-  memUsage: number | null;
-  collectedAt: string;
+// 로그 서비스 타입 (ward로 모니터링되는 앱/로그 소스)
+export interface LogService {
+  source: string;
+  lastLoggedAt: string | null;
+  logCount: number;
 }
 
 // 서비스 서버 타입
@@ -109,7 +107,7 @@ export interface ServiceServer {
   serverName: string;
   serverHostname: string;
   serverStatus: ServerStatus;
-  processes: ServiceProcess[];
+  services: LogService[];
 }
 
 // 서비스 목록 응답 타입

@@ -8,12 +8,6 @@ import type { ServicesResponse } from '@/types';
 
 const POLL_INTERVAL_MS = 30_000;
 
-// 바이트를 MB로 변환
-function formatMB(bytes: number | null): string {
-  if (bytes === null) return '-';
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
 // 서비스 목록 페이지
 export function ServicesPage() {
   const navigate = useNavigate();
@@ -56,75 +50,75 @@ export function ServicesPage() {
     return <ErrorMessage message={error} onRetry={fetchServices} />;
   }
 
-  // 전체 프로세스 목록을 평탄화
-  const rows = (data?.services ?? []).flatMap((srv) =>
-    srv.processes.map((proc) => ({ ...proc, ...srv }))
-  );
+  const servers = data?.services ?? [];
+  const totalServices = servers.reduce((sum, srv) => sum + srv.services.length, 0);
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">서비스</h1>
-        <span className="text-sm text-gray-500">총 {rows.length}개</span>
+        <span className="text-sm text-gray-500">총 {totalServices}개</span>
       </div>
 
-      {rows.length === 0 ? (
+      {servers.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
-          수집된 서비스 프로세스가 없습니다.
+          모니터링 중인 서비스가 없습니다.
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  서비스명
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  서버
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  CPU%
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  메모리
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  수집 시각
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {rows.map((row) => (
-                <tr
-                  key={`${row.serverId}-${row.pid}`}
-                  onClick={() => navigate(`/services/${row.serverId}/${row.pid}`)}
-                  className="hover:bg-gray-50 cursor-pointer"
-                >
-                  <td className="px-4 py-3 font-medium text-gray-900">
-                    {row.name}
-                    <span className="ml-2 text-xs text-gray-400">PID {row.pid}</span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <Badge status={row.serverStatus} />
-                      <span>{row.serverName}</span>
-                      <span className="text-gray-400 text-xs">{row.serverHostname}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right text-gray-700">
-                    {row.cpuUsage !== null ? `${row.cpuUsage.toFixed(1)}%` : '-'}
-                  </td>
-                  <td className="px-4 py-3 text-right text-gray-700">
-                    {formatMB(row.memUsage)}
-                  </td>
-                  <td className="px-4 py-3 text-right text-gray-400 text-xs">
-                    {new Date(row.collectedAt).toLocaleString('ko-KR')}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-6">
+          {servers.map((srv) => (
+            <div key={srv.serverId} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              {/* 서버 헤더 */}
+              <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
+                <Badge status={srv.serverStatus} />
+                <span className="font-medium text-gray-900">{srv.serverName}</span>
+                <span className="text-xs text-gray-400">{srv.serverHostname}</span>
+              </div>
+
+              {srv.services.length === 0 ? (
+                <div className="px-4 py-6 text-sm text-gray-400 text-center">
+                  등록된 서비스가 없습니다.
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="border-b border-gray-100">
+                    <tr>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        서비스 소스
+                      </th>
+                      <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        로그 수
+                      </th>
+                      <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        마지막 로그
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {srv.services.map((svc) => (
+                      <tr
+                        key={svc.source}
+                        onClick={() => navigate(`/servers/${srv.serverId}?tab=logs&source=${encodeURIComponent(svc.source)}`)}
+                        className="hover:bg-gray-50 cursor-pointer"
+                      >
+                        <td className="px-4 py-3 font-medium text-gray-900">
+                          {svc.source}
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-600">
+                          {svc.logCount.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-400 text-xs">
+                          {svc.lastLoggedAt
+                            ? new Date(svc.lastLoggedAt).toLocaleString('ko-KR')
+                            : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

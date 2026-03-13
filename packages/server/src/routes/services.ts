@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { getDb, schema } from '../db/index.js';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, isNotNull, max, count } from 'drizzle-orm';
 import { sessionAuth } from '../middleware/sessionAuth.js';
 
 const router: Router = Router();
@@ -8,7 +8,7 @@ const router: Router = Router();
 // 모든 서비스 라우트에 세션 인증 적용
 router.use(sessionAuth);
 
-// GET /api/services — 모든 서버의 최신 프로세스 목록 반환
+// GET /api/services — Ward 에이전트가 모니터링 중인 서비스(로그 소스) 목록
 router.get('/', async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const db = getDb();
@@ -24,45 +24,35 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction): Promis
       .from(schema.servers)
       .orderBy(schema.servers.createdAt);
 
-    // 각 서버별 최신 프로세스 목록 조회
+    // 각 서버별 로그 소스(서비스) 집계
     const services = await Promise.all(
       serverList.map(async (server) => {
-        // 가장 최근 collectedAt 조회
-        const [latest] = await db
-          .select({ collectedAt: schema.processes.collectedAt })
-          .from(schema.processes)
-          .where(eq(schema.processes.serverId, server.id))
-          .orderBy(desc(schema.processes.collectedAt))
-          .limit(1);
-
-        if (!latest) {
-          return {
-            serverId: server.id,
-            serverName: server.name,
-            serverHostname: server.hostname,
-            serverStatus: server.status,
-            processes: [],
-          };
-        }
-
-        // 해당 서버의 최신 시점 프로세스 목록 조회
-        const processList = await db
-          .select()
-          .from(schema.processes)
+        const logSources = await db
+          .select({
+            source: schema.logs.source,
+            lastLoggedAt: max(schema.logs.loggedAt),
+            logCount: count(schema.logs.id),
+          })
+          .from(schema.logs)
           .where(
             and(
-              eq(schema.processes.serverId, server.id),
-              eq(schema.processes.collectedAt, latest.collectedAt),
+              eq(schema.logs.serverId, server.id),
+              isNotNull(schema.logs.source),
             )
           )
-          .limit(1000);
+          .groupBy(schema.logs.source)
+          .orderBy(desc(max(schema.logs.loggedAt)));
 
         return {
           serverId: server.id,
           serverName: server.name,
           serverHostname: server.hostname,
           serverStatus: server.status,
-          processes: processList,
+          services: logSources.map((s) => ({
+            source: s.source!,
+            lastLoggedAt: s.lastLoggedAt?.toISOString() ?? null,
+            logCount: Number(s.logCount),
+          })),
         };
       })
     );
