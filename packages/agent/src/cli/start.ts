@@ -83,6 +83,13 @@ export async function start(): Promise<void> {
 
   child.unref();
 
+  // child.pid가 undefined이면 에러 처리
+  if (child.pid === undefined) {
+    console.error('에이전트 시작 실패: 프로세스 PID를 가져올 수 없습니다.');
+    process.exit(1);
+    return;
+  }
+
   // PID 파일 저장
   const pidPath = getPidPath();
   fs.writeFileSync(pidPath, String(child.pid), 'utf-8');
