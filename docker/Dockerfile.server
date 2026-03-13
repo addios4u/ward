@@ -1,0 +1,26 @@
+# Ward 서버 + 웹 통합 Docker 이미지
+# web(Vite SPA)을 빌드하고 server(Express)가 함께 서빙
+
+FROM node:22-alpine AS base
+RUN npm install -g pnpm
+WORKDIR /app
+
+# 의존성 설치
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/server/package.json ./packages/server/
+COPY packages/web/package.json ./packages/web/
+RUN pnpm install --frozen-lockfile
+
+# 소스 복사
+COPY packages/server ./packages/server
+COPY packages/web ./packages/web
+
+# web 빌드 (Vite SPA)
+RUN pnpm --filter @ward/web build
+
+# server 빌드 (TypeScript → JavaScript)
+RUN pnpm --filter @ward/server build
+
+# 프로덕션 실행
+EXPOSE 4000
+CMD ["node", "packages/server/dist/index.js"]

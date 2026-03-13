@@ -5,10 +5,10 @@
   "description": "Self-hosted 서버 모니터링 시스템",
   "scripts": {
     "dev": "concurrently -n server,web -c blue,green \"pnpm --filter @ward/server dev\" \"pnpm --filter @ward/web dev\"",
-    "start": "concurrently -n server,web -c blue,green \"pnpm --filter @ward/server start\" \"pnpm --filter @ward/web start\"",
+    "start": "pnpm --filter @ward/server start",
     "dev:server": "pnpm --filter @ward/server dev",
     "dev:web": "pnpm --filter @ward/web dev",
-    "build": "pnpm -r build",
+    "build": "pnpm --filter @ward/web build && pnpm --filter @ward/server build",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",

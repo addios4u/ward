@@ -5,6 +5,9 @@ import { RedisStore } from 'connect-redis';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import healthRouter from './routes/health.js';
 import serversRouter from './routes/servers.js';
 import agentRouter from './routes/agent.js';
@@ -111,6 +114,21 @@ export function createApp() {
   app.use('/api/servers', apiLimiter, processesRouter);
   app.use('/api/services', apiLimiter, servicesRouter);
   app.use('/api/users', apiLimiter, usersRouter);
+
+  // ESM __dirname 폴리필
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+
+  // 프로덕션: web/dist 정적 파일 서빙
+  // 개발: Vite dev server가 별도로 실행되므로 스킵
+  const webDistPath = path.resolve(__dirname, '../../web/dist');
+  if (fs.existsSync(webDistPath)) {
+    app.use(express.static(webDistPath));
+    // SPA fallback — /api/* 이외의 모든 GET 요청에 index.html 반환
+    app.get('*', (_req, res) => {
+      res.sendFile(path.join(webDistPath, 'index.html'));
+    });
+  }
 
   // 에러 핸들러
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
