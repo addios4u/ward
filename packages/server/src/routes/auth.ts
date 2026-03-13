@@ -63,7 +63,7 @@ router.post('/logout', async (req: Request, res: Response, next: NextFunction): 
         else resolve();
       });
     });
-    res.clearCookie('connect.sid');
+    res.clearCookie('ward.sid');
     res.json({ ok: true });
   } catch (err) {
     next(err);

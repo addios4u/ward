@@ -57,6 +57,7 @@ export function createApp() {
 
   app.use(session({
     store,
+    name: 'ward.sid',
     secret: sessionSecret || 'dev-secret-change-in-production',
     resave: false,
     saveUninitialized: false,
