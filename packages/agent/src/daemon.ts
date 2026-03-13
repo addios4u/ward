@@ -1,11 +1,14 @@
 // 에이전트 데몬 프로세스 - 백그라운드에서 실행
-import { loadConfig } from './config/AgentConfig.js';
+import * as os from 'os';
+import { loadConfig, loadState } from './config/AgentConfig.js';
 import { CpuCollector } from './metrics/CpuCollector.js';
 import { MemoryCollector } from './metrics/MemoryCollector.js';
 import { DiskCollector } from './metrics/DiskCollector.js';
 import { NetworkCollector } from './metrics/NetworkCollector.js';
 import { ProcessCollector } from './metrics/ProcessCollector.js';
-import { HttpClient } from './transport/HttpClient.js';
+import { IpCollector } from './metrics/IpCollector.js';
+import { HttpClient, SendResult } from './transport/HttpClient.js';
+import { ReconnectManager } from './transport/ReconnectManager.js';
 import { Queue } from './transport/Queue.js';
 import { LogWatcher } from './logs/LogWatcher.js';
 import { LogForwarder } from './logs/LogForwarder.js';
@@ -16,15 +19,18 @@ const memoryCollector = new MemoryCollector();
 const diskCollector = new DiskCollector();
 const networkCollector = new NetworkCollector();
 const processCollector = new ProcessCollector();
+const ipCollector = new IpCollector();
 
 // 전송 실패 큐
 const queue = new Queue({ maxSize: 1000, maxRetries: 3 });
 
 let httpClient: HttpClient;
+let reconnectManager: ReconnectManager;
 let metricsInterval: ReturnType<typeof setInterval>;
 let heartbeatInterval: ReturnType<typeof setInterval>;
 let logWatcher: LogWatcher;
 let logForwarder: LogForwarder;
+let currentHostname: string;
 
 // 큐에 쌓인 데이터 재전송 시도
 async function flushQueue(): Promise<void> {
@@ -33,8 +39,8 @@ async function flushQueue(): Promise<void> {
   const items = queue.dequeueAll();
   for (const item of items) {
     const result = await httpClient.post(item.path, item.data);
+    reconnectManager.reportResult(result);
     if (!result.success) {
-      // 재시도 가능하면 다시 큐에 추가
       queue.requeueItem(item);
     }
   }
@@ -61,6 +67,7 @@ async function collectAndSendMetrics(): Promise<void> {
     };
 
     const result = await httpClient.sendMetrics(payload);
+    reconnectManager.reportResult(result);
 
     if (!result.success) {
       // 전송 실패 시 큐에 저장
@@ -76,43 +83,66 @@ async function collectAndSendMetrics(): Promise<void> {
 }
 
 // Heartbeat 전송
-async function sendHeartbeat(): Promise<void> {
+async function sendHeartbeat(): Promise<SendResult> {
   try {
+    const ipInfo = await ipCollector.collect();
     const payload = {
       sentAt: new Date().toISOString(),
-      hostname: process.env['HOSTNAME'] ?? 'unknown',
+      hostname: currentHostname,
+      ipInfo,
     };
 
     const result = await httpClient.sendHeartbeat(payload);
+    reconnectManager.reportResult(result);
 
     if (!result.success) {
       console.error(`Heartbeat 전송 실패: ${result.error}`);
     }
+    return result;
   } catch (error) {
     console.error('Heartbeat 전송 오류:', error);
+    return { success: false, error: String(error) };
   }
 }
 
 // 데몬 시작
 export async function startDaemon(): Promise<void> {
+  // state에서 serverId + serverUrl 로드
+  const state = loadState();
+
+  if (!state) {
+    console.error('에이전트 상태가 없습니다. `ward start <서버 URL>`로 먼저 시작하세요.');
+    process.exit(1);
+    return;
+  }
+
   const config = loadConfig();
+  const interval = config?.metrics?.interval ?? 30;
+
+  currentHostname = state.hostname ?? os.hostname();
 
   httpClient = new HttpClient({
-    serverUrl: config.server.url,
-    apiKey: config.server.apiKey,
+    serverUrl: state.serverUrl,
+    serverId: state.serverId,
+  });
+
+  reconnectManager = new ReconnectManager(async () => {
+    await sendHeartbeat();
   });
 
   console.log('Ward 에이전트 데몬 시작');
-  console.log(`서버: ${config.server.url}`);
-  console.log(`메트릭 수집 주기: ${config.metrics.interval}초`);
+  console.log(`서버: ${state.serverUrl}`);
+  console.log(`메트릭 수집 주기: ${interval}초`);
 
   // LogWatcher/LogForwarder 초기화 및 연결
   logWatcher = new LogWatcher();
   logForwarder = new LogForwarder({ client: httpClient });
 
   // 설정의 logs 배열로 로그 파일 감시 등록
-  for (const logConfig of config.logs) {
-    logWatcher.watch(logConfig.path, logConfig.type);
+  if (config?.logs) {
+    for (const logConfig of config.logs) {
+      logWatcher.watch(logConfig.path, logConfig.type);
+    }
   }
 
   // LogWatcher 이벤트를 LogForwarder에 연결
@@ -124,10 +154,7 @@ export async function startDaemon(): Promise<void> {
   logForwarder.start();
 
   // 메트릭 수집 인터벌 설정
-  metricsInterval = setInterval(
-    collectAndSendMetrics,
-    config.metrics.interval * 1000
-  );
+  metricsInterval = setInterval(collectAndSendMetrics, interval * 1000);
 
   // Heartbeat 인터벌 설정 (30초)
   heartbeatInterval = setInterval(sendHeartbeat, 30000);
@@ -142,6 +169,7 @@ process.on('SIGTERM', () => {
   console.log('에이전트 데몬 종료 중...');
   clearInterval(metricsInterval);
   clearInterval(heartbeatInterval);
+  reconnectManager?.destroy();
   logWatcher?.unwatchAll();
   void logForwarder?.stop();
   process.exit(0);
@@ -151,6 +179,7 @@ process.on('SIGINT', () => {
   console.log('에이전트 데몬 인터럽트...');
   clearInterval(metricsInterval);
   clearInterval(heartbeatInterval);
+  reconnectManager?.destroy();
   logWatcher?.unwatchAll();
   void logForwarder?.stop();
   process.exit(0);

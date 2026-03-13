@@ -67,16 +67,35 @@ vi.mock('../../src/transport/HttpClient.js', () => ({
     sendHeartbeat: vi.fn().mockResolvedValue({ success: true }),
     post: vi.fn().mockResolvedValue({ success: true }),
   })),
+  SendErrorType: {
+    CONNECTION_REFUSED: 'CONNECTION_REFUSED',
+    TIMEOUT: 'TIMEOUT',
+    HTTP_ERROR: 'HTTP_ERROR',
+    UNKNOWN: 'UNKNOWN',
+  },
+}));
+
+vi.mock('../../src/transport/ReconnectManager.js', () => ({
+  ReconnectManager: vi.fn().mockImplementation(() => ({
+    reportResult: vi.fn(),
+    destroy: vi.fn(),
+    serverAvailable: true,
+  })),
 }));
 
 vi.mock('../../src/config/AgentConfig.js', () => ({
   loadConfig: vi.fn().mockReturnValue({
-    server: { url: 'http://localhost:3000', apiKey: 'test-key' },
+    server: { url: 'http://localhost:3000' },
     metrics: { interval: 60 },
     logs: [
       { path: '/var/log/nginx/access.log', type: 'nginx' },
       { path: '/var/log/app/app.log', type: 'nodejs' },
     ],
+  }),
+  loadState: vi.fn().mockReturnValue({
+    serverId: 'test-server-id',
+    serverUrl: 'http://localhost:3000',
+    hostname: 'test-host',
   }),
 }));
 
@@ -115,7 +134,7 @@ describe('daemon - LogWatcher/LogForwarder 연결', () => {
   it('logs 배열이 비어있으면 watch()가 호출되지 않아야 한다', async () => {
     const { loadConfig } = await import('../../src/config/AgentConfig.js');
     vi.mocked(loadConfig).mockReturnValue({
-      server: { url: 'http://localhost:3000', apiKey: 'test-key' },
+      server: { url: 'http://localhost:3000' },
       metrics: { interval: 60 },
       logs: [],
     });

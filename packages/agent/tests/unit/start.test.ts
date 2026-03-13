@@ -8,6 +8,7 @@ const {
   mockWriteFileSync,
   mockReadFileSync,
   mockUnlinkSync,
+  mockFetch,
 } = vi.hoisted(() => ({
   mockSpawn: vi.fn(),
   mockExistsSync: vi.fn(),
@@ -15,6 +16,7 @@ const {
   mockWriteFileSync: vi.fn(),
   mockReadFileSync: vi.fn(),
   mockUnlinkSync: vi.fn(),
+  mockFetch: vi.fn(),
 }));
 
 // child_process 모킹
@@ -41,17 +43,30 @@ vi.mock('fs', () => ({
 // AgentConfig 모킹
 vi.mock('../../src/config/AgentConfig.js', () => ({
   loadConfig: vi.fn().mockReturnValue({
-    server: { url: 'http://localhost:3000', apiKey: 'test-key' },
-    metrics: { interval: 10 },
+    server: { url: 'http://localhost:3000' },
+    metrics: { interval: 30 },
     logs: [],
   }),
+  saveConfig: vi.fn(),
+  saveState: vi.fn(),
+  loadState: vi.fn().mockReturnValue(null),
   validateConfig: vi.fn().mockReturnValue([]),
   getWardDir: vi.fn().mockReturnValue('/home/user/.ward'),
   getPidPath: vi.fn().mockReturnValue('/home/user/.ward/agent.pid'),
+  getStatePath: vi.fn().mockReturnValue('/home/user/.ward/state.json'),
 }));
 
-// start 모듈을 최상위에서 한 번만 import (vi.mock은 호이스팅되므로 안전)
-import { start } from '../../src/cli/start.js';
+// systemd 모킹
+vi.mock('../../src/cli/systemd.js', () => ({
+  setupSystemd: vi.fn().mockResolvedValue(undefined),
+  removeSystemd: vi.fn().mockResolvedValue(undefined),
+}));
+
+// fetch 전역 모킹 (register 호출용)
+vi.stubGlobal('fetch', mockFetch);
+
+// start 모듈을 최상위에서 한 번만 import
+import { start, normalizeUrl } from '../../src/cli/start.js';
 
 describe('start - PID 파일 처리', () => {
   beforeEach(() => {
@@ -62,12 +77,18 @@ describe('start - PID 파일 처리', () => {
       if (p === '/home/user/.ward') return true;
       return false;
     });
+    // register 요청 기본 응답
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ serverId: 'test-server-id' }),
+    });
   });
 
   it('child.pid가 정상적인 숫자이면 PID 파일에 숫자를 저장해야 한다', async () => {
     mockSpawn.mockReturnValue({ pid: 12345, unref: vi.fn() });
 
-    await start();
+    await start('http://localhost:3000', {});
 
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       '/home/user/.ward/agent.pid',
@@ -80,9 +101,9 @@ describe('start - PID 파일 처리', () => {
     mockSpawn.mockReturnValue({ pid: undefined, unref: vi.fn() });
 
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const processExitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as any);
+    const processExitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never);
 
-    await start();
+    await start('http://localhost:3000', {});
 
     // "undefined" 문자열이 PID 파일에 저장되면 안 됨
     const pidWriteCall = mockWriteFileSync.mock.calls.find(
@@ -97,5 +118,19 @@ describe('start - PID 파일 처리', () => {
 
     consoleErrorSpy.mockRestore();
     processExitSpy.mockRestore();
+  });
+});
+
+describe('normalizeUrl', () => {
+  it('http://로 시작하는 URL은 그대로 반환해야 한다', () => {
+    expect(normalizeUrl('http://example.com')).toBe('http://example.com');
+  });
+
+  it('https://로 시작하는 URL은 그대로 반환해야 한다', () => {
+    expect(normalizeUrl('https://example.com')).toBe('https://example.com');
+  });
+
+  it('scheme이 없으면 https://를 자동으로 추가해야 한다', () => {
+    expect(normalizeUrl('example.com')).toBe('https://example.com');
   });
 });

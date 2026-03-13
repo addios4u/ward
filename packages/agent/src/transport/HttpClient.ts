@@ -1,7 +1,15 @@
 // HTTP 전송 클라이언트
+
+export enum SendErrorType {
+  CONNECTION_REFUSED = 'CONNECTION_REFUSED',  // 서버 다운
+  TIMEOUT = 'TIMEOUT',
+  HTTP_ERROR = 'HTTP_ERROR',
+  UNKNOWN = 'UNKNOWN',
+}
+
 export interface HttpClientOptions {
   serverUrl: string;
-  apiKey: string;
+  serverId: string;  // apiKey 대신 serverId
   timeoutMs?: number;
 }
 
@@ -9,21 +17,37 @@ export interface SendResult {
   success: boolean;
   statusCode?: number;
   error?: string;
+  errorType?: SendErrorType;
 }
 
 // Ward 서버로 데이터를 전송하는 HTTP 클라이언트
 export class HttpClient {
   private readonly serverUrl: string;
-  private readonly apiKey: string;
+  private readonly serverId: string;
   private readonly timeoutMs: number;
 
   constructor(options: HttpClientOptions) {
     this.serverUrl = options.serverUrl.replace(/\/$/, ''); // 끝 슬래시 제거
-    this.apiKey = options.apiKey;
+    this.serverId = options.serverId;
     this.timeoutMs = options.timeoutMs ?? 10000; // 기본 10초 타임아웃
   }
 
-  // 공통 POST 요청 메서드
+  // 에러를 SendErrorType으로 분류
+  private classifyError(error: unknown): { error: string; errorType: SendErrorType } {
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        return { error: '요청 타임아웃', errorType: SendErrorType.TIMEOUT };
+      }
+      const nodeError = error as NodeJS.ErrnoException;
+      if (nodeError.code === 'ECONNREFUSED' || nodeError.code === 'ENOTFOUND') {
+        return { error: error.message, errorType: SendErrorType.CONNECTION_REFUSED };
+      }
+      return { error: error.message, errorType: SendErrorType.UNKNOWN };
+    }
+    return { error: '알 수 없는 오류', errorType: SendErrorType.UNKNOWN };
+  }
+
+  // 공통 POST 요청 메서드 (x-ward-server-id 헤더 포함)
   async post(path: string, body: unknown): Promise<SendResult> {
     const url = `${this.serverUrl}${path}`;
     const controller = new AbortController();
@@ -34,7 +58,7 @@ export class HttpClient {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
+          'x-ward-server-id': this.serverId,
         },
         body: JSON.stringify(body),
         signal: controller.signal,
@@ -49,19 +73,70 @@ export class HttpClient {
           success: false,
           statusCode: response.status,
           error: `HTTP 오류: ${response.status} ${response.statusText}`,
+          errorType: SendErrorType.HTTP_ERROR,
         };
       }
     } catch (error) {
       clearTimeout(timeoutId);
+      const classified = this.classifyError(error);
+      return { success: false, ...classified };
+    }
+  }
 
-      if (error instanceof Error && error.name === 'AbortError') {
-        return { success: false, error: '요청 타임아웃' };
+  // 서버 등록 (인증 헤더 없이)
+  async register(hostname: string, groupName?: string): Promise<{ serverId: string }> {
+    const url = `${this.serverUrl}/api/agent/register`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hostname, groupName }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const data = await response.json() as { serverId: string };
+      return data;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
+  }
+
+  // 서버 등록 해제
+  async unregister(): Promise<SendResult> {
+    const url = `${this.serverUrl}/api/agent/unregister`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-ward-server-id': this.serverId,
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        return { success: true, statusCode: response.status };
+      } else {
+        return {
+          success: false,
+          statusCode: response.status,
+          error: `HTTP 오류: ${response.status} ${response.statusText}`,
+          errorType: SendErrorType.HTTP_ERROR,
+        };
       }
-
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : '알 수 없는 오류',
-      };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      const classified = this.classifyError(error);
+      return { success: false, ...classified };
     }
   }
 

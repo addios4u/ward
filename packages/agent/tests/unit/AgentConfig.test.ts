@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
 // fs 모듈 모킹
 vi.mock('fs');
 
+import * as fs from 'fs';
 const mockFs = vi.mocked(fs);
 
 describe('AgentConfig', () => {
@@ -19,43 +19,36 @@ describe('AgentConfig', () => {
   });
 
   describe('loadConfig', () => {
-    it('설정 파일이 없으면 기본값을 반환해야 한다', async () => {
+    it('설정 파일이 없으면 null을 반환해야 한다', async () => {
       mockFs.existsSync.mockReturnValue(false);
 
       const { loadConfig } = await import('../../src/config/AgentConfig.js');
       const config = loadConfig();
 
-      expect(config.server.url).toBe('http://localhost:3000');
-      expect(config.server.apiKey).toBe('');
-      expect(config.metrics.interval).toBe(10);
-      expect(config.logs).toEqual([]);
+      expect(config).toBeNull();
     });
 
     it('설정 파일이 있으면 파일 내용을 로드해야 한다', async () => {
-      const yamlContent = `
-server:
-  url: "http://my-server:4000"
-  apiKey: "test-api-key"
-metrics:
-  interval: 30
-logs:
-  - path: "/var/log/nginx/access.log"
-    type: nginx
-`;
+      const jsonContent = JSON.stringify({
+        server: { url: 'http://my-server:4000', groupName: 'prod' },
+        metrics: { interval: 30 },
+        logs: [{ path: '/var/log/nginx/access.log', type: 'nginx' }],
+      });
       mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue(yamlContent);
+      mockFs.readFileSync.mockReturnValue(jsonContent);
 
       const { loadConfig } = await import('../../src/config/AgentConfig.js');
       const config = loadConfig();
 
-      expect(config.server.url).toBe('http://my-server:4000');
-      expect(config.server.apiKey).toBe('test-api-key');
-      expect(config.metrics.interval).toBe(30);
-      expect(config.logs).toHaveLength(1);
-      expect(config.logs[0]?.path).toBe('/var/log/nginx/access.log');
+      expect(config).not.toBeNull();
+      expect(config!.server.url).toBe('http://my-server:4000');
+      expect(config!.server.groupName).toBe('prod');
+      expect(config!.metrics.interval).toBe(30);
+      expect(config!.logs).toHaveLength(1);
+      expect(config!.logs[0]?.path).toBe('/var/log/nginx/access.log');
     });
 
-    it('설정 파일 파싱 오류 시 기본값을 반환해야 한다', async () => {
+    it('설정 파일 파싱 오류 시 null을 반환해야 한다', async () => {
       mockFs.existsSync.mockReturnValue(true);
       mockFs.readFileSync.mockImplementation(() => {
         throw new Error('파일 읽기 실패');
@@ -64,12 +57,12 @@ logs:
       const { loadConfig } = await import('../../src/config/AgentConfig.js');
       const config = loadConfig();
 
-      expect(config.server.url).toBe('http://localhost:3000');
+      expect(config).toBeNull();
     });
   });
 
   describe('saveConfig', () => {
-    it('설정을 YAML 파일로 저장해야 한다', async () => {
+    it('설정을 JSON 파일로 저장해야 한다', async () => {
       mockFs.existsSync.mockReturnValue(true);
       mockFs.mkdirSync.mockImplementation(() => undefined);
       mockFs.writeFileSync.mockImplementation(() => undefined);
@@ -77,7 +70,7 @@ logs:
       const { saveConfig } = await import('../../src/config/AgentConfig.js');
 
       const config = {
-        server: { url: 'http://test:3000', apiKey: 'key123' },
+        server: { url: 'http://test:3000' },
         metrics: { interval: 15 },
         logs: [],
       };
@@ -87,7 +80,6 @@ logs:
       expect(mockFs.writeFileSync).toHaveBeenCalledOnce();
       const [, content] = mockFs.writeFileSync.mock.calls[0] as [string, string, string];
       expect(content).toContain('http://test:3000');
-      expect(content).toContain('key123');
     });
 
     it('Ward 디렉토리가 없으면 생성해야 한다', async () => {
@@ -98,7 +90,7 @@ logs:
       const { saveConfig } = await import('../../src/config/AgentConfig.js');
 
       saveConfig({
-        server: { url: 'http://test:3000', apiKey: 'key' },
+        server: { url: 'http://test:3000' },
         metrics: { interval: 10 },
         logs: [],
       });
@@ -110,12 +102,60 @@ logs:
     });
   });
 
+  describe('loadState / saveState', () => {
+    it('state 파일이 없으면 null을 반환해야 한다', async () => {
+      mockFs.existsSync.mockReturnValue(false);
+
+      const { loadState } = await import('../../src/config/AgentConfig.js');
+      const state = loadState();
+
+      expect(state).toBeNull();
+    });
+
+    it('state 파일이 있으면 내용을 로드해야 한다', async () => {
+      const stateJson = JSON.stringify({
+        serverId: 'srv-123',
+        serverUrl: 'https://ward.example.com',
+        hostname: 'my-host',
+      });
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(stateJson);
+
+      const { loadState } = await import('../../src/config/AgentConfig.js');
+      const state = loadState();
+
+      expect(state).not.toBeNull();
+      expect(state!.serverId).toBe('srv-123');
+      expect(state!.serverUrl).toBe('https://ward.example.com');
+      expect(state!.hostname).toBe('my-host');
+    });
+
+    it('saveState는 state.json에 JSON을 저장해야 한다', async () => {
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.mkdirSync.mockImplementation(() => undefined);
+      mockFs.writeFileSync.mockImplementation(() => undefined);
+
+      const { saveState } = await import('../../src/config/AgentConfig.js');
+
+      saveState({
+        serverId: 'srv-456',
+        serverUrl: 'https://ward.example.com',
+        hostname: 'my-host',
+      });
+
+      expect(mockFs.writeFileSync).toHaveBeenCalledOnce();
+      const [filePath, content] = mockFs.writeFileSync.mock.calls[0] as [string, string, string];
+      expect(filePath).toContain('state.json');
+      expect(content).toContain('srv-456');
+    });
+  });
+
   describe('validateConfig', () => {
     it('유효한 설정은 빈 오류 배열을 반환해야 한다', async () => {
       const { validateConfig } = await import('../../src/config/AgentConfig.js');
 
       const errors = validateConfig({
-        server: { url: 'http://test:3000', apiKey: 'my-api-key' },
+        server: { url: 'http://test:3000' },
         metrics: { interval: 10 },
         logs: [],
       });
@@ -127,7 +167,7 @@ logs:
       const { validateConfig } = await import('../../src/config/AgentConfig.js');
 
       const errors = validateConfig({
-        server: { url: '', apiKey: 'my-api-key' },
+        server: { url: '' },
         metrics: { interval: 10 },
         logs: [],
       });
@@ -136,24 +176,11 @@ logs:
       expect(errors.some((e) => e.includes('URL'))).toBe(true);
     });
 
-    it('API 키가 없으면 오류를 반환해야 한다', async () => {
-      const { validateConfig } = await import('../../src/config/AgentConfig.js');
-
-      const errors = validateConfig({
-        server: { url: 'http://test:3000', apiKey: '' },
-        metrics: { interval: 10 },
-        logs: [],
-      });
-
-      expect(errors.length).toBeGreaterThan(0);
-      expect(errors.some((e) => e.includes('API'))).toBe(true);
-    });
-
     it('수집 주기가 0 이하면 오류를 반환해야 한다', async () => {
       const { validateConfig } = await import('../../src/config/AgentConfig.js');
 
       const errors = validateConfig({
-        server: { url: 'http://test:3000', apiKey: 'key' },
+        server: { url: 'http://test:3000' },
         metrics: { interval: 0 },
         logs: [],
       });
@@ -170,11 +197,18 @@ logs:
       expect(wardDir).toBe(path.join(os.homedir(), '.ward'));
     });
 
-    it('getConfigPath는 config.yaml 경로를 반환해야 한다', async () => {
+    it('getConfigPath는 config.json 경로를 반환해야 한다', async () => {
       const { getConfigPath } = await import('../../src/config/AgentConfig.js');
       const configPath = getConfigPath();
 
-      expect(configPath).toBe(path.join(os.homedir(), '.ward', 'config.yaml'));
+      expect(configPath).toBe(path.join(os.homedir(), '.ward', 'config.json'));
+    });
+
+    it('getStatePath는 state.json 경로를 반환해야 한다', async () => {
+      const { getStatePath } = await import('../../src/config/AgentConfig.js');
+      const statePath = getStatePath();
+
+      expect(statePath).toBe(path.join(os.homedir(), '.ward', 'state.json'));
     });
 
     it('getPidPath는 agent.pid 경로를 반환해야 한다', async () => {
