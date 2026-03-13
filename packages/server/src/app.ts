@@ -17,7 +17,7 @@ import logsRouter from './routes/logs.js';
 import servicesRouter, { processesRouter } from './routes/services.js';
 import usersRouter from './routes/users.js';
 import { WsManager } from './websocket/WsManager.js';
-import { getSessionStoreClient, getPubClient } from './lib/redis.js';
+import { getSessionStoreClient, getRateLimitClient } from './lib/redis.js';
 import { config } from './config/index.js';
 
 export function createApp(): express.Application {
@@ -80,9 +80,8 @@ export function createApp(): express.Application {
     },
   }));
 
-  // ioredis 클라이언트로 rate-limit-redis sendCommand 래핑
-  // ioredis는 모든 Redis 명령어를 소문자 메서드로 노출 (예: evalsha, script)
-  const ioRedis = getPubClient();
+  // rate-limit-redis 전용 클라이언트 (enableOfflineQueue: true로 연결 전 명령 큐잉)
+  const ioRedis = getRateLimitClient();
   const sendCommand = async (command: string, ...args: string[]): Promise<import('rate-limit-redis').RedisReply> => {
     const method = (ioRedis as any)[command.toLowerCase()];
     if (typeof method === 'function') {

@@ -21,6 +21,12 @@ vi.mock('../../src/lib/redis.js', () => ({
     subscribe: vi.fn(),
     connect: vi.fn().mockResolvedValue(undefined),
   }),
+  getRateLimitClient: vi.fn().mockReturnValue({
+    on: vi.fn(),
+    evalsha: vi.fn().mockResolvedValue([1, Math.floor(Date.now() / 1000) + 60]),
+    script: vi.fn().mockResolvedValue("sha1234"),
+    eval: vi.fn().mockResolvedValue([1, Math.floor(Date.now() / 1000) + 60]),
+  }),
   getPubClient: vi.fn().mockReturnValue({
     on: vi.fn(),
     connect: vi.fn().mockResolvedValue(undefined),

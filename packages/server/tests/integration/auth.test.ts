@@ -48,6 +48,7 @@ vi.mock('../../src/lib/redis.js', () => ({
     connect: vi.fn().mockResolvedValue(undefined),
   }),
   getPubClient: vi.fn().mockReturnValue(mockRedisClient),
+  getRateLimitClient: vi.fn().mockReturnValue(mockRedisClient),
   REDIS_CHANNELS: {
     metrics: (id: string) => `ward:metrics:${id}`,
     logs: (id: string) => `ward:logs:${id}`,

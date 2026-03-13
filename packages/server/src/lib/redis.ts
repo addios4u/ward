@@ -30,6 +30,8 @@ function createRedisOptions(): RedisOptions {
 let pubClient: Redis | null = null;
 // 구독(sub)용 Redis 클라이언트 싱글턴 (subscribe 모드에서는 다른 명령 불가)
 let subClient: Redis | null = null;
+// Rate Limiter 전용 클라이언트 (enableOfflineQueue: true - 연결 전 명령 큐잉 필요)
+let rateLimitClient: Redis | null = null;
 
 /**
  * 발행용 Redis 클라이언트 반환
@@ -147,6 +149,31 @@ export async function safeGet(key: string): Promise<string | null> {
 }
 
 /**
+ * Rate Limiter 전용 Redis 클라이언트
+ * enableOfflineQueue: true (기본값) - 연결 전 명령을 큐에 보관하여 연결 후 실행
+ */
+export function getRateLimitClient(): Redis {
+  if (!rateLimitClient) {
+    const url = config.redis.url;
+    const options: RedisOptions = {
+      host: config.redis.host,
+      port: config.redis.port,
+      password: config.redis.password || undefined,
+      retryStrategy(times: number) {
+        if (times > 10) return null;
+        return Math.min(times * 100, 3000);
+      },
+      // enableOfflineQueue: true (기본값) - SCRIPT LOAD 명령을 연결 후 실행
+    };
+    rateLimitClient = url ? new Redis(url, options) : new Redis(options);
+    rateLimitClient.on('error', (err: Error) => {
+      console.error('Redis Rate Limiter 클라이언트 오류:', err.message);
+    });
+  }
+  return rateLimitClient;
+}
+
+/**
  * connect-redis v9용 ioredis 어댑터
  * connect-redis v9는 node-redis v4 스타일 API를 기대하므로 ioredis를 래핑
  */
@@ -196,6 +223,17 @@ export async function closeRedis(): Promise<void> {
       })
     );
     subClient = null;
+  }
+
+  if (rateLimitClient) {
+    closePromises.push(
+      rateLimitClient.quit().then(() => {
+        console.log('Redis Rate Limiter 클라이언트 연결 종료');
+      }).catch(() => {
+        rateLimitClient?.disconnect();
+      })
+    );
+    rateLimitClient = null;
   }
 
   await Promise.all(closePromises);
