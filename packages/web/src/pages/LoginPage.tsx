@@ -17,7 +17,7 @@ export function LoginPage() {
 
   // CAPTCHA 로드
   const loadCaptcha = async () => {
-    const res = await fetch(`${import.meta.env.VITE_SERVER_URL ?? 'http://localhost:4000'}/api/auth/captcha`);
+    const res = await fetch(`${import.meta.env['VITE_SERVER_URL'] ?? ''}/api/auth/captcha`);
     const data = await res.json() as { token: string; question: string };
     setCaptchaToken(data.token);
     setCaptchaQuestion(data.question);

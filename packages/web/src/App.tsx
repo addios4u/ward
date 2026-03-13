@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { LoginPage } from './pages/LoginPage';
@@ -8,28 +8,50 @@ import { ServicesPage } from './pages/ServicesPage';
 import { ServiceDetailPage } from './pages/ServiceDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
 
-// 쿠키에서 ward.sid 세션 쿠키 존재 여부 확인
-function hasSession(): boolean {
-  return document.cookie.split(';').some(c => c.trim().startsWith('ward.sid='));
+type AuthState = 'loading' | 'authenticated' | 'unauthenticated';
+
+// /api/auth/me로 인증 상태 확인 (httpOnly 쿠키 지원)
+async function checkAuth(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/auth/me', { credentials: 'include' });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 // 인증 필요 라우트 래퍼
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  if (!hasSession()) {
+function PrivateRoute({ auth, children }: { auth: AuthState; children: React.ReactNode }) {
+  if (auth === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-500">로딩 중...</div>
+      </div>
+    );
+  }
+  if (auth === 'unauthenticated') {
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;
 }
 
 export default function App() {
+  const [auth, setAuth] = useState<AuthState>('loading');
+
+  useEffect(() => {
+    checkAuth().then(ok => setAuth(ok ? 'authenticated' : 'unauthenticated'));
+  }, []);
+
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/login" element={
+          auth === 'authenticated' ? <Navigate to="/" replace /> : <LoginPage />
+        } />
         <Route
           path="/"
           element={
-            <PrivateRoute>
+            <PrivateRoute auth={auth}>
               <DashboardLayout />
             </PrivateRoute>
           }
