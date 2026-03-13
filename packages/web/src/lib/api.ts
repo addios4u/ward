@@ -13,6 +13,19 @@ const SERVER_URL =
     ? (process.env['NEXT_PUBLIC_SERVER_URL'] ?? 'http://localhost:4000')
     : (process.env['NEXT_PUBLIC_SERVER_URL'] ?? 'http://localhost:4000');
 
+// 추가 에러 정보를 포함하는 커스텀 에러 클래스
+class ApiError extends Error {
+  requireCaptcha?: boolean;
+  retryAfter?: number;
+
+  constructor(message: string, options?: { requireCaptcha?: boolean; retryAfter?: number }) {
+    super(message);
+    this.name = 'ApiError';
+    this.requireCaptcha = options?.requireCaptcha;
+    this.retryAfter = options?.retryAfter;
+  }
+}
+
 // 기본 fetch 래퍼 (쿠키 기반 인증)
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
@@ -34,7 +47,10 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({ error: '알 수 없는 오류' }));
-    throw new Error(errorData.error ?? `HTTP 오류: ${res.status}`);
+    throw new ApiError(errorData.error ?? `HTTP 오류: ${res.status}`, {
+      requireCaptcha: errorData.requireCaptcha,
+      retryAfter: errorData.retryAfter,
+    });
   }
 
   return res.json() as Promise<T>;
@@ -43,10 +59,18 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 // 인증 API
 export const authApi = {
   // 로그인
-  login: (email: string, password: string): Promise<LoginResponse> =>
+  login: (
+    email: string,
+    password: string,
+    captcha?: { token: string; answer: string }
+  ): Promise<LoginResponse> =>
     apiFetch<LoginResponse>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({
+        email,
+        password,
+        ...(captcha ? { captchaToken: captcha.token, captchaAnswer: captcha.answer } : {}),
+      }),
     }),
 };
 

@@ -37,6 +37,69 @@ describe('authApi', () => {
       '이메일 또는 비밀번호가 올바르지 않습니다.'
     );
   });
+
+  it('CAPTCHA 파라미터가 포함된 로그인 요청을 전송해야 한다', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        user: { id: 'uuid-1', email: 'admin@example.com' },
+      }),
+    });
+
+    await authApi.login('admin@example.com', 'password123', {
+      token: 'captcha-token-abc',
+      answer: '42',
+    });
+
+    const callArgs = mockFetch.mock.calls[0];
+    const options = callArgs[1] as RequestInit;
+    const body = JSON.parse(options.body as string);
+    expect(body.captchaToken).toBe('captcha-token-abc');
+    expect(body.captchaAnswer).toBe('42');
+  });
+
+  it('CAPTCHA 없이 로그인 요청 시 captchaToken/captchaAnswer가 없어야 한다', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        user: { id: 'uuid-1', email: 'admin@example.com' },
+      }),
+    });
+
+    await authApi.login('admin@example.com', 'password123');
+
+    const callArgs = mockFetch.mock.calls[0];
+    const options = callArgs[1] as RequestInit;
+    const body = JSON.parse(options.body as string);
+    expect(body.captchaToken).toBeUndefined();
+    expect(body.captchaAnswer).toBeUndefined();
+  });
+
+  it('requireCaptcha 에러가 포함된 응답을 처리해야 한다', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: 'CAPTCHA가 필요합니다.', requireCaptcha: true }),
+    });
+
+    await expect(authApi.login('admin@example.com', 'password123')).rejects.toMatchObject({
+      message: 'CAPTCHA가 필요합니다.',
+      requireCaptcha: true,
+    });
+  });
+
+  it('429 응답 시 retryAfter 정보가 포함된 에러를 던져야 한다', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: '너무 많은 시도입니다.', retryAfter: 300 }),
+    });
+
+    await expect(authApi.login('admin@example.com', 'password123')).rejects.toMatchObject({
+      message: '너무 많은 시도입니다.',
+      retryAfter: 300,
+    });
+  });
 });
 
 describe('serversApi', () => {
