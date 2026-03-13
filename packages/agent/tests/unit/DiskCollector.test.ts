@@ -16,7 +16,7 @@ describe('DiskCollector', () => {
     collector = new DiskCollector();
   });
 
-  it('디스크 마운트 정보를 올바르게 수집해야 한다', async () => {
+  it('디스크 마운트 정보를 Record 형태로 반환해야 한다', async () => {
     const si = await import('systeminformation');
     vi.mocked(si.default.fsSize).mockResolvedValue([
       {
@@ -41,12 +41,12 @@ describe('DiskCollector', () => {
 
     const metrics = await collector.collect();
 
-    expect(metrics.mounts).toHaveLength(2);
-    expect(metrics.mounts[0]?.mount).toBe('/');
-    expect(metrics.mounts[0]?.device).toBe('/dev/sda1');
-    expect(metrics.mounts[0]?.total).toBe(100 * 1024 * 1024 * 1024);
-    expect(metrics.mounts[0]?.used).toBe(40 * 1024 * 1024 * 1024);
-    expect(metrics.mounts[0]?.usagePercent).toBe(40);
+    // Record<mountPoint, {...}> 구조 검증
+    expect(metrics['/']).toBeDefined();
+    expect(metrics['/data']).toBeDefined();
+    expect(metrics['/']?.total).toBe(100 * 1024 * 1024 * 1024);
+    expect(metrics['/']?.used).toBe(40 * 1024 * 1024 * 1024);
+    expect(metrics['/']?.usagePercent).toBe(40);
   });
 
   it('여유 공간을 올바르게 계산해야 한다', async () => {
@@ -65,15 +65,38 @@ describe('DiskCollector', () => {
 
     const metrics = await collector.collect();
 
-    expect(metrics.mounts[0]?.free).toBe(400); // size - used
+    expect(metrics['/']?.free).toBe(400); // size - used
   });
 
-  it('마운트가 없으면 빈 배열을 반환해야 한다', async () => {
+  it('마운트가 없으면 빈 객체를 반환해야 한다', async () => {
     const si = await import('systeminformation');
     vi.mocked(si.default.fsSize).mockResolvedValue([]);
 
     const metrics = await collector.collect();
 
-    expect(metrics.mounts).toHaveLength(0);
+    expect(Object.keys(metrics)).toHaveLength(0);
+  });
+
+  it('각 마운트 포인트가 키로 사용되어야 한다', async () => {
+    const si = await import('systeminformation');
+    vi.mocked(si.default.fsSize).mockResolvedValue([
+      {
+        fs: '/dev/sda1',
+        type: 'ext4',
+        size: 1000,
+        used: 500,
+        available: 500,
+        use: 50,
+        mount: '/home',
+      },
+    ] as any);
+
+    const metrics = await collector.collect();
+
+    expect(Object.keys(metrics)).toContain('/home');
+    expect(metrics['/home']?.total).toBe(1000);
+    expect(metrics['/home']?.used).toBe(500);
+    expect(metrics['/home']?.free).toBe(500);
+    expect(metrics['/home']?.usagePercent).toBe(50);
   });
 });
