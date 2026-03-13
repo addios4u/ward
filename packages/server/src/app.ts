@@ -18,8 +18,10 @@ import { config } from './config/index.js';
 export function createApp() {
   const app = express();
 
-  // 보안 헤더
-  app.use(helmet());
+  // 보안 헤더 (crossOriginResourcePolicy는 CORS로 별도 처리)
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }));
 
   // CORS: ALLOWED_ORIGINS 환경변수로 허용 origin 지정
   const allowedOrigins = process.env.ALLOWED_ORIGINS
