@@ -113,7 +113,21 @@ export default function ServerDetailPage({ params }: ServerDetailPageProps) {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{statusData.server.name}</h1>
-            <p className="text-sm text-gray-500 mt-1">{statusData.server.hostname}</p>
+            <p className="text-xs text-gray-400 mt-0.5 font-mono">{statusData.server.hostname}</p>
+            {/* 공인 IP 및 위치 정보 */}
+            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+              {statusData.server.publicIp && (
+                <span className="text-xs text-gray-500">
+                  <span className="text-gray-400">IP</span>{' '}
+                  <span className="font-mono">{statusData.server.publicIp}</span>
+                </span>
+              )}
+              {(statusData.server.city ?? statusData.server.country) && (
+                <span className="text-xs text-gray-500">
+                  {[statusData.server.city, statusData.server.country].filter(Boolean).join(', ')}
+                </span>
+              )}
+            </div>
           </div>
           <Badge status={statusData.server.status} />
         </div>

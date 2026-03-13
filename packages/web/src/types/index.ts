@@ -6,6 +6,11 @@ export interface Server {
   id: string;
   name: string;
   hostname: string;
+  groupName: string | null;   // 그룹명
+  publicIp: string | null;    // 공인 IP
+  country: string | null;     // 국가
+  city: string | null;        // 도시
+  isp: string | null;         // ISP
   status: ServerStatus;
   lastSeenAt: string | null;
   createdAt: string;

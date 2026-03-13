@@ -6,7 +6,6 @@ import type {
   ServerStatusResponse,
   LoginResponse,
   ServicesResponse,
-  Server,
   AdminUser,
 } from '@/types';
 
@@ -103,10 +102,6 @@ export const serversApi = {
     const query = params.toString();
     return apiFetch<LogsResponse>(`/api/servers/${id}/logs${query ? `?${query}` : ''}`);
   },
-
-  // 서버 등록
-  register: (name: string, hostname: string): Promise<{ server: Server; apiKey: string }> =>
-    apiFetch('/api/servers', { method: 'POST', body: JSON.stringify({ name, hostname }) }),
 
   // 서버 삭제
   delete: (id: string): Promise<void> =>

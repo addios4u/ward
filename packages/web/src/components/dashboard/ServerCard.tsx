@@ -8,30 +8,42 @@ interface ServerCardProps {
   server: Server;
 }
 
-// 바이트를 GB로 변환
-function formatBytes(bytes: number | null): string {
-  if (bytes === null) return '-';
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
-}
-
 // 서버 카드 컴포넌트
 export function ServerCard({ server }: ServerCardProps) {
   const lastSeen = server.lastSeenAt
     ? new Date(server.lastSeenAt).toLocaleString('ko-KR')
     : '없음';
 
+  // 국가/도시 문자열 조합
+  const location = [server.city, server.country].filter(Boolean).join(', ');
+
   return (
     <Link href={`/servers/${server.id}`}>
       <Card className="hover:shadow-md transition-shadow duration-200 cursor-pointer">
         <CardBody>
           <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">{server.name}</h3>
-              <p className="text-sm text-gray-500 mt-1">{server.hostname}</p>
+            <div className="min-w-0 flex-1 mr-2">
+              <h3 className="text-lg font-semibold text-gray-900 truncate">{server.name}</h3>
+              {/* 호스트명 표시 */}
+              <p className="text-xs text-gray-400 mt-0.5 truncate">{server.hostname}</p>
             </div>
             <Badge status={server.status} />
           </div>
-          <div className="mt-4 text-xs text-gray-400">
+
+          {/* 공인 IP 및 위치 정보 */}
+          <div className="mt-3 space-y-1">
+            {server.publicIp && (
+              <p className="text-xs text-gray-500">
+                <span className="text-gray-400">IP</span>{' '}
+                <span className="font-mono">{server.publicIp}</span>
+              </p>
+            )}
+            {location && (
+              <p className="text-xs text-gray-500">{location}</p>
+            )}
+          </div>
+
+          <div className="mt-3 text-xs text-gray-400">
             <span>마지막 확인: {lastSeen}</span>
           </div>
         </CardBody>

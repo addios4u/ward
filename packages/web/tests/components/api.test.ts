@@ -9,6 +9,21 @@ vi.stubGlobal('fetch', mockFetch);
 const locationMock = { href: '' };
 vi.stubGlobal('location', locationMock);
 
+// 테스트용 서버 목 데이터 (새 필드 포함)
+const mockServerBase = {
+  id: 'uuid-1',
+  name: '서버 1',
+  hostname: 'host-1',
+  groupName: null,
+  publicIp: null,
+  country: null,
+  city: null,
+  isp: null,
+  status: 'online' as const,
+  lastSeenAt: null,
+  createdAt: '2024-01-01',
+};
+
 describe('authApi', () => {
   beforeEach(() => {
     mockFetch.mockReset();
@@ -109,9 +124,7 @@ describe('serversApi', () => {
   });
 
   it('서버 목록을 조회해야 한다', async () => {
-    const mockServers = [
-      { id: 'uuid-1', name: '서버 1', hostname: 'host-1', status: 'online', lastSeenAt: null, createdAt: '2024-01-01' },
-    ];
+    const mockServers = [mockServerBase];
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ servers: mockServers }),
@@ -120,6 +133,41 @@ describe('serversApi', () => {
     const res = await serversApi.list();
     expect(res.servers).toHaveLength(1);
     expect(res.servers[0].name).toBe('서버 1');
+  });
+
+  it('서버 목록 응답에 groupName, publicIp, country, city, isp 필드가 포함되어야 한다', async () => {
+    const mockServers = [
+      {
+        ...mockServerBase,
+        groupName: 'Production',
+        publicIp: '1.2.3.4',
+        country: 'South Korea',
+        city: 'Seoul',
+        isp: 'KT',
+      },
+    ];
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ servers: mockServers }),
+    });
+
+    const res = await serversApi.list();
+    expect(res.servers[0].groupName).toBe('Production');
+    expect(res.servers[0].publicIp).toBe('1.2.3.4');
+    expect(res.servers[0].country).toBe('South Korea');
+    expect(res.servers[0].city).toBe('Seoul');
+    expect(res.servers[0].isp).toBe('KT');
+  });
+
+  it('groupName이 null인 서버도 목록에 포함되어야 한다', async () => {
+    const mockServers = [{ ...mockServerBase, groupName: null }];
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ servers: mockServers }),
+    });
+
+    const res = await serversApi.list();
+    expect(res.servers[0].groupName).toBeNull();
   });
 
   it('메트릭 조회 시 올바른 URL을 호출해야 한다', async () => {
@@ -196,29 +244,10 @@ describe('apiFetch - credentials 및 인터셉터', () => {
   });
 });
 
-describe('serversApi - 등록/삭제', () => {
+describe('serversApi - 삭제', () => {
   beforeEach(() => {
     mockFetch.mockReset();
     locationMock.href = '';
-  });
-
-  it('서버 등록 시 POST /api/servers를 호출해야 한다', async () => {
-    const mockServer = { id: 'uuid-1', name: '테스트 서버', hostname: 'test.example.com', status: 'unknown', lastSeenAt: null, createdAt: '2024-01-01' };
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ server: mockServer, apiKey: 'sk-test-key-123' }),
-    });
-
-    const res = await serversApi.register('테스트 서버', 'test.example.com');
-    expect(res.server.name).toBe('테스트 서버');
-    expect(res.apiKey).toBe('sk-test-key-123');
-
-    const callArgs = mockFetch.mock.calls[0];
-    const options = callArgs[1] as RequestInit;
-    expect(options.method).toBe('POST');
-    const body = JSON.parse(options.body as string);
-    expect(body.name).toBe('테스트 서버');
-    expect(body.hostname).toBe('test.example.com');
   });
 
   it('서버 삭제 시 DELETE /api/servers/:id를 호출해야 한다', async () => {

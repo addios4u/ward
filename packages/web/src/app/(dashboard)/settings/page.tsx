@@ -16,17 +16,6 @@ export default function SettingsPage() {
   const [serversLoading, setServersLoading] = useState(true);
   const [serversError, setServersError] = useState<string | null>(null);
 
-  // 서버 등록 모달
-  const [showRegisterModal, setShowRegisterModal] = useState(false);
-  const [registerName, setRegisterName] = useState('');
-  const [registerHostname, setRegisterHostname] = useState('');
-  const [registerLoading, setRegisterLoading] = useState(false);
-  const [registerError, setRegisterError] = useState<string | null>(null);
-
-  // API 키 표시 모달
-  const [apiKeyResult, setApiKeyResult] = useState<{ serverName: string; apiKey: string } | null>(null);
-  const [apiKeyCopied, setApiKeyCopied] = useState(false);
-
   // 계정 관리 상태
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -78,43 +67,19 @@ export default function SettingsPage() {
     fetchUsers();
   }, [fetchServers, fetchUsers]);
 
-  // 서버 등록
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setRegisterLoading(true);
-    setRegisterError(null);
-    try {
-      const res = await serversApi.register(registerName.trim(), registerHostname.trim());
-      setShowRegisterModal(false);
-      setRegisterName('');
-      setRegisterHostname('');
-      setApiKeyResult({ serverName: res.server.name, apiKey: res.apiKey });
-      fetchServers();
-    } catch (err: unknown) {
-      setRegisterError(err instanceof Error ? err.message : '서버 등록 실패');
-    } finally {
-      setRegisterLoading(false);
-    }
-  };
-
-  // 서버 삭제
+  // 서버 강제 삭제
   const handleDeleteServer = async (id: string, name: string) => {
-    if (!confirm(`"${name}" 서버를 삭제하시겠습니까?`)) return;
+    if (
+      !confirm(
+        `이 서버를 삭제하면 에이전트가 재시작될 때 자동으로 재등록됩니다. 계속하시겠습니까?\n\n대상 서버: "${name}"`
+      )
+    )
+      return;
     try {
       await serversApi.delete(id);
       fetchServers();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : '서버 삭제 실패');
-    }
-  };
-
-  // API 키 복사
-  const handleCopyApiKey = () => {
-    if (apiKeyResult) {
-      navigator.clipboard.writeText(apiKeyResult.apiKey).then(() => {
-        setApiKeyCopied(true);
-        setTimeout(() => setApiKeyCopied(false), 2000);
-      });
     }
   };
 
@@ -173,12 +138,7 @@ export default function SettingsPage() {
         {/* 섹션 1: 서버 관리 */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900">서버 관리</h2>
-              <Button size="sm" onClick={() => setShowRegisterModal(true)}>
-                서버 등록
-              </Button>
-            </div>
+            <h2 className="text-base font-semibold text-gray-900">서버 관리</h2>
           </CardHeader>
           <CardBody className="p-0">
             {serversLoading ? (
@@ -200,33 +160,44 @@ export default function SettingsPage() {
                   <tr>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">서버명</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">호스트명</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">IP</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">국가/도시</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">등록일</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {servers.map((server) => (
-                    <tr key={server.id}>
-                      <td className="px-4 py-3 font-medium text-gray-900">{server.name}</td>
-                      <td className="px-4 py-3 text-gray-600">{server.hostname}</td>
-                      <td className="px-4 py-3">
-                        <Badge status={server.status} />
-                      </td>
-                      <td className="px-4 py-3 text-gray-400 text-xs">
-                        {new Date(server.createdAt).toLocaleDateString('ko-KR')}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => handleDeleteServer(server.id, server.name)}
-                        >
-                          삭제
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {servers.map((server) => {
+                    const location = [server.city, server.country].filter(Boolean).join(', ');
+                    return (
+                      <tr key={server.id}>
+                        <td className="px-4 py-3 font-medium text-gray-900">{server.name}</td>
+                        <td className="px-4 py-3 text-gray-600 text-xs font-mono">{server.hostname}</td>
+                        <td className="px-4 py-3 text-gray-600 text-xs font-mono">
+                          {server.publicIp ?? '-'}
+                        </td>
+                        <td className="px-4 py-3 text-gray-500 text-xs">
+                          {location || '-'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge status={server.status} />
+                        </td>
+                        <td className="px-4 py-3 text-gray-400 text-xs">
+                          {new Date(server.createdAt).toLocaleDateString('ko-KR')}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => handleDeleteServer(server.id, server.name)}
+                          >
+                            강제 삭제
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -325,89 +296,6 @@ export default function SettingsPage() {
           </CardBody>
         </Card>
       </div>
-
-      {/* 서버 등록 모달 */}
-      {showRegisterModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">서버 등록</h2>
-            <form onSubmit={handleRegisterSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">서버명</label>
-                <input
-                  type="text"
-                  value={registerName}
-                  onChange={(e) => setRegisterName(e.target.value)}
-                  placeholder="예: 웹 서버 1"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">호스트명</label>
-                <input
-                  type="text"
-                  value={registerHostname}
-                  onChange={(e) => setRegisterHostname(e.target.value)}
-                  placeholder="예: web-server-01.example.com"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              {registerError && <p className="text-sm text-red-600">{registerError}</p>}
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    setShowRegisterModal(false);
-                    setRegisterName('');
-                    setRegisterHostname('');
-                    setRegisterError(null);
-                  }}
-                  disabled={registerLoading}
-                >
-                  취소
-                </Button>
-                <Button type="submit" disabled={registerLoading}>
-                  {registerLoading ? '등록 중...' : '등록'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* API 키 표시 모달 */}
-      {apiKeyResult && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">서버 등록 완료</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              <span className="font-medium">{apiKeyResult.serverName}</span> 서버가 등록되었습니다.
-              아래 API 키를 에이전트 설정에 사용하세요.
-            </p>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
-              <p className="text-xs text-yellow-800 font-medium mb-2">
-                ⚠ 이 키는 다시 확인할 수 없습니다. 지금 반드시 복사하세요.
-              </p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-xs bg-white border border-gray-200 rounded px-2 py-1 break-all font-mono">
-                  {apiKeyResult.apiKey}
-                </code>
-                <Button size="sm" variant="secondary" onClick={handleCopyApiKey}>
-                  {apiKeyCopied ? '복사됨' : '복사'}
-                </Button>
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <Button onClick={() => { setApiKeyResult(null); setApiKeyCopied(false); }}>
-                확인
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 계정 추가 모달 */}
       {showAddUserModal && (
