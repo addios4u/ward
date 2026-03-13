@@ -81,10 +81,10 @@ export class WsManager {
 
   /**
    * 쿠키 문자열에서 세션 쿠키 존재 여부 확인
-   * connect.sid 쿠키가 있으면 인증된 것으로 간주
+   * ward.sid 쿠키가 있으면 인증된 것으로 간주
    */
   private hasValidSessionCookie(cookie: string): boolean {
-    return cookie.includes('connect.sid=');
+    return cookie.includes('ward.sid=');
   }
 
   /** 클라이언트 메시지 처리 */
