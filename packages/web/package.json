@@ -2,6 +2,7 @@
   "name": "@ward/web",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Ward 관리자 대시보드",
   "scripts": {
     "dev": "vite",
