@@ -88,3 +88,33 @@ export interface WsMessage {
   serverId: string;
   data: unknown;
 }
+
+// 서비스 프로세스 타입
+export interface ServiceProcess {
+  pid: number;
+  name: string;
+  cpuUsage: number | null;
+  memUsage: number | null;
+  collectedAt: string;
+}
+
+// 서비스 서버 타입
+export interface ServiceServer {
+  serverId: string;
+  serverName: string;
+  serverHostname: string;
+  serverStatus: ServerStatus;
+  processes: ServiceProcess[];
+}
+
+// 서비스 목록 응답 타입
+export interface ServicesResponse {
+  services: ServiceServer[];
+}
+
+// 관리자 계정 타입
+export interface AdminUser {
+  id: string;
+  email: string;
+  createdAt: string;
+}

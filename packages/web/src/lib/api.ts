@@ -5,6 +5,9 @@ import type {
   LogsResponse,
   ServerStatusResponse,
   LoginResponse,
+  ServicesResponse,
+  Server,
+  AdminUser,
 } from '@/types';
 
 // 서버 URL (환경변수에서 읽음)
@@ -90,13 +93,46 @@ export const serversApi = {
   // 서버 로그 조회
   getLogs: (
     id: string,
-    options: { level?: string; limit?: number; offset?: number } = {}
+    options: { level?: string; limit?: number; offset?: number; source?: string } = {}
   ): Promise<LogsResponse> => {
     const params = new URLSearchParams();
     if (options.level) params.set('level', options.level);
     if (options.limit !== undefined) params.set('limit', String(options.limit));
     if (options.offset !== undefined) params.set('offset', String(options.offset));
+    if (options.source) params.set('source', options.source);
     const query = params.toString();
     return apiFetch<LogsResponse>(`/api/servers/${id}/logs${query ? `?${query}` : ''}`);
   },
+
+  // 서버 등록
+  register: (name: string, hostname: string): Promise<{ server: Server; apiKey: string }> =>
+    apiFetch('/api/servers', { method: 'POST', body: JSON.stringify({ name, hostname }) }),
+
+  // 서버 삭제
+  delete: (id: string): Promise<void> =>
+    apiFetch(`/api/servers/${id}`, { method: 'DELETE' }),
+};
+
+// 서비스 API
+export const servicesApi = {
+  // 서비스 목록 조회
+  list: (): Promise<ServicesResponse> => apiFetch('/api/services'),
+};
+
+// 사용자 API
+export const usersApi = {
+  // 관리자 계정 목록 조회
+  list: (): Promise<{ users: AdminUser[] }> => apiFetch('/api/users'),
+
+  // 관리자 계정 생성
+  create: (email: string, password: string): Promise<{ user: AdminUser }> =>
+    apiFetch('/api/users', { method: 'POST', body: JSON.stringify({ email, password }) }),
+
+  // 관리자 계정 삭제
+  delete: (id: string): Promise<void> =>
+    apiFetch(`/api/users/${id}`, { method: 'DELETE' }),
+
+  // 비밀번호 변경
+  changePassword: (id: string, password: string): Promise<void> =>
+    apiFetch(`/api/users/${id}/password`, { method: 'PATCH', body: JSON.stringify({ password }) }),
 };

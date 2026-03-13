@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { authApi, serversApi } from '@/lib/api';
+import { authApi, serversApi, servicesApi, usersApi } from '@/lib/api';
 
 // fetch 모킹
 const mockFetch = vi.fn();
@@ -193,6 +193,162 @@ describe('apiFetch - credentials 및 인터셉터', () => {
     await serversApi.list().catch(() => {});
 
     expect(locationMock.href).toBe('/login');
+  });
+});
+
+describe('serversApi - 등록/삭제', () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+    locationMock.href = '';
+  });
+
+  it('서버 등록 시 POST /api/servers를 호출해야 한다', async () => {
+    const mockServer = { id: 'uuid-1', name: '테스트 서버', hostname: 'test.example.com', status: 'unknown', lastSeenAt: null, createdAt: '2024-01-01' };
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ server: mockServer, apiKey: 'sk-test-key-123' }),
+    });
+
+    const res = await serversApi.register('테스트 서버', 'test.example.com');
+    expect(res.server.name).toBe('테스트 서버');
+    expect(res.apiKey).toBe('sk-test-key-123');
+
+    const callArgs = mockFetch.mock.calls[0];
+    const options = callArgs[1] as RequestInit;
+    expect(options.method).toBe('POST');
+    const body = JSON.parse(options.body as string);
+    expect(body.name).toBe('테스트 서버');
+    expect(body.hostname).toBe('test.example.com');
+  });
+
+  it('서버 삭제 시 DELETE /api/servers/:id를 호출해야 한다', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
+    });
+
+    await serversApi.delete('uuid-1');
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/servers/uuid-1'),
+      expect.objectContaining({ method: 'DELETE' })
+    );
+  });
+
+  it('로그 조회 시 source 파라미터가 적용되어야 한다', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ logs: [], limit: 100, offset: 0 }),
+    });
+
+    await serversApi.getLogs('uuid-1', { source: 'app', limit: 100 });
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('source=app'),
+      expect.any(Object)
+    );
+  });
+});
+
+describe('servicesApi', () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+    locationMock.href = '';
+  });
+
+  it('서비스 목록을 조회해야 한다', async () => {
+    const mockServices = [
+      {
+        serverId: 'uuid-1',
+        serverName: '웹 서버',
+        serverHostname: 'web.example.com',
+        serverStatus: 'online',
+        processes: [
+          { pid: 1234, name: 'node', cpuUsage: 2.5, memUsage: 104857600, collectedAt: '2024-01-01T00:00:00Z' },
+        ],
+      },
+    ];
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ services: mockServices }),
+    });
+
+    const res = await servicesApi.list();
+    expect(res.services).toHaveLength(1);
+    expect(res.services[0].serverName).toBe('웹 서버');
+    expect(res.services[0].processes[0].pid).toBe(1234);
+  });
+
+  it('GET /api/services를 호출해야 한다', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ services: [] }),
+    });
+
+    await servicesApi.list();
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/services'),
+      expect.any(Object)
+    );
+  });
+});
+
+describe('usersApi', () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+    locationMock.href = '';
+  });
+
+  it('계정 목록을 조회해야 한다', async () => {
+    const mockUsers = [{ id: 'u1', email: 'admin@example.com', createdAt: '2024-01-01' }];
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ users: mockUsers }),
+    });
+
+    const res = await usersApi.list();
+    expect(res.users).toHaveLength(1);
+    expect(res.users[0].email).toBe('admin@example.com');
+  });
+
+  it('계정 생성 시 POST /api/users를 호출해야 한다', async () => {
+    const mockUser = { id: 'u2', email: 'new@example.com', createdAt: '2024-01-01' };
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ user: mockUser }),
+    });
+
+    const res = await usersApi.create('new@example.com', 'password123');
+    expect(res.user.email).toBe('new@example.com');
+
+    const options = mockFetch.mock.calls[0][1] as RequestInit;
+    expect(options.method).toBe('POST');
+    const body = JSON.parse(options.body as string);
+    expect(body.email).toBe('new@example.com');
+  });
+
+  it('계정 삭제 시 DELETE /api/users/:id를 호출해야 한다', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
+    });
+
+    await usersApi.delete('u1');
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/users/u1'),
+      expect.objectContaining({ method: 'DELETE' })
+    );
+  });
+
+  it('비밀번호 변경 시 PATCH /api/users/:id/password를 호출해야 한다', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
+    });
+
+    await usersApi.changePassword('u1', 'newpassword');
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/users/u1/password'),
+      expect.objectContaining({ method: 'PATCH' })
+    );
   });
 });
 
