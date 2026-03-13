@@ -56,7 +56,7 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction): P
     const attempts = await loginGuard.getAttempts(ip);
     if (attempts >= 3) {
       if (!captchaToken || !captchaAnswer) {
-        res.status(400).json({ error: '보안 captcha 검증이 필요합니다.' });
+        res.status(400).json({ error: '보안 captcha 검증이 필요합니다.', requireCaptcha: true });
         return;
       }
       const captchaResult = captchaService.verify(captchaToken, captchaAnswer);
