@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { authApi, saveToken } from '@/lib/api';
+import { authApi } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 
 // 로그인 페이지
@@ -19,8 +19,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await authApi.login(email, password);
-      saveToken(res.token);
+      await authApi.login(email, password);
       router.push('/');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');

@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-// 대시보드 레이아웃 — 인증 확인 + 네비게이션
+// 대시보드 레이아웃 — 네비게이션 (인증은 미들웨어가 처리)
 export default function DashboardLayout({
   children,
 }: {
@@ -12,16 +12,12 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
 
-  useEffect(() => {
-    // 토큰 없으면 로그인 페이지로 이동
-    const token = localStorage.getItem('ward_token');
-    if (!token) {
-      router.push('/login');
-    }
-  }, [router]);
-
-  const handleLogout = () => {
-    localStorage.removeItem('ward_token');
+  const handleLogout = async () => {
+    // 로그아웃 API 호출 후 로그인 페이지로 이동
+    await fetch(`${process.env['NEXT_PUBLIC_SERVER_URL'] ?? 'http://localhost:4000'}/api/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(() => {});
     router.push('/login');
   };
 
