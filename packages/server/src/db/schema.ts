@@ -21,7 +21,11 @@ export const servers = pgTable('servers', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: varchar('name', { length: 255 }).notNull(),
   hostname: varchar('hostname', { length: 255 }).notNull(),
-  apiKey: varchar('api_key', { length: 255 }).notNull().unique(),
+  groupName: varchar('group_name', { length: 255 }),      // nullable, --name 플래그
+  publicIp: varchar('public_ip', { length: 45 }),          // nullable, ip-api.com
+  country: varchar('country', { length: 100 }),            // nullable
+  city: varchar('city', { length: 100 }),                  // nullable
+  isp: varchar('isp', { length: 255 }),                    // nullable
   status: serverStatusEnum('status').notNull().default('unknown'),
   lastSeenAt: timestamp('last_seen_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),

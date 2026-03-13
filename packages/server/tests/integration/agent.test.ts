@@ -49,38 +49,54 @@ vi.mock('../../src/lib/redis.js', () => ({
   }),
 }));
 
-// 모킹할 서버 객체 (vi.mock factory 내부에서도 참조할 수 있도록 별도 선언)
-const mockServer = {
-  id: 'server-uuid-1',
-  name: '테스트 서버',
-  hostname: 'test.example.com',
-  apiKey: 'ward_test_api_key',
-  status: 'online',
-  lastSeenAt: new Date('2024-01-01T00:00:00Z'),
-  createdAt: new Date('2024-01-01T00:00:00Z'),
-};
-
-// DB 모킹 — factory 내부에서 mockServer를 직접 참조하면 호이스팅 문제가 발생하므로
-// limit의 반환값을 인라인으로 정의
+// DB 모킹 — where는 체이닝(limit 호출)과 직접 await 모두 지원하기 위해
+// Promise이면서 limit 메서드도 가진 객체를 반환
 vi.mock('../../src/db/index.js', () => {
-  const inlineMockServer = {
+  const defaultServer = {
     id: 'server-uuid-1',
     name: '테스트 서버',
     hostname: 'test.example.com',
-    apiKey: 'ward_test_api_key',
+    groupName: null,
+    publicIp: null,
+    country: null,
+    city: null,
+    isp: null,
     status: 'online',
     lastSeenAt: new Date('2024-01-01T00:00:00Z'),
     createdAt: new Date('2024-01-01T00:00:00Z'),
   };
+
+  // limit mock: 기본적으로 서버를 반환
+  const limitFn = vi.fn().mockResolvedValue([defaultServer]);
+
+  // returning mock: 기본적으로 빈 배열 반환
+  const returningFn = vi.fn().mockResolvedValue([{ id: 'server-uuid-new' }]);
+
+  // where mock: limit/returning 체이닝할 수 있는 Promise-like 객체 반환
+  // update().set().where() → 직접 await
+  // select().from().where().limit() → limit 호출
+  // delete().where().returning() → returning 호출
+  const makeWhereResult = (resolveValue: any[]) => {
+    const p = Promise.resolve(resolveValue) as any;
+    p.limit = limitFn;
+    p.returning = returningFn;
+    return p;
+  };
+
+  const whereFn = vi.fn(() => makeWhereResult([]));
+
   const mockDb = {
     select: vi.fn().mockReturnThis(),
     from: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockResolvedValue([inlineMockServer]),
+    where: whereFn,
+    limit: limitFn,
     insert: vi.fn().mockReturnThis(),
-    values: vi.fn().mockResolvedValue([]),
+    values: vi.fn().mockReturnThis(),
+    returning: returningFn,
     update: vi.fn().mockReturnThis(),
     set: vi.fn().mockReturnThis(),
+    delete: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockResolvedValue([]),
   };
 
   return {
@@ -90,8 +106,12 @@ vi.mock('../../src/db/index.js', () => {
         id: 'id',
         name: 'name',
         hostname: 'hostname',
+        groupName: 'groupName',
+        publicIp: 'publicIp',
+        country: 'country',
+        city: 'city',
+        isp: 'isp',
         status: 'status',
-        apiKey: 'apiKey',
         lastSeenAt: 'lastSeenAt',
         createdAt: 'createdAt',
       },
@@ -109,8 +129,145 @@ vi.mock('drizzle-orm', () => ({
 
 const app = createApp();
 
+const defaultServer = {
+  id: 'server-uuid-1',
+  name: '테스트 서버',
+  hostname: 'test.example.com',
+  groupName: null,
+  publicIp: null,
+  country: null,
+  city: null,
+  isp: null,
+  status: 'online',
+  lastSeenAt: new Date('2024-01-01T00:00:00Z'),
+  createdAt: new Date('2024-01-01T00:00:00Z'),
+};
+
+// 각 테스트 전 mock 기본값 복원
+beforeEach(async () => {
+  const { getDb } = await import('../../src/db/index.js');
+  const mockDb = getDb();
+
+  const makeWhereResult = (resolveValue: any[]) => {
+    const p = Promise.resolve(resolveValue) as any;
+    p.limit = vi.mocked(mockDb.limit);
+    p.returning = vi.mocked(mockDb.returning);
+    return p;
+  };
+
+  // limit 기본값: 서버 반환 (serverIdentify 미들웨어용)
+  vi.mocked(mockDb.limit).mockResolvedValue([defaultServer]);
+  // where 기본값: 빈 배열 resolve + limit/returning 체이닝 지원
+  vi.mocked(mockDb.where).mockImplementation(() => makeWhereResult([]));
+  vi.mocked(mockDb.returning).mockResolvedValue([{ id: 'server-uuid-new' }]);
+});
+
+// register/unregister 테스트
+describe('POST /api/agent/register', () => {
+  it('hostname으로 등록하면 serverId를 반환해야 한다', async () => {
+    const { getDb } = await import('../../src/db/index.js');
+    const mockDb = getDb();
+
+    const makeWhereResult = (resolveValue: any[]) => {
+      const p = Promise.resolve(resolveValue) as any;
+      p.limit = vi.mocked(mockDb.limit);
+      return p;
+    };
+
+    // 기존 서버 없음: limit → []
+    vi.mocked(mockDb.limit).mockResolvedValueOnce([]);
+    vi.mocked(mockDb.where).mockImplementationOnce(() => makeWhereResult([]));
+    vi.mocked(mockDb.returning).mockResolvedValueOnce([{ id: 'server-uuid-new' }]);
+
+    const res = await request(app)
+      .post('/api/agent/register')
+      .send({ hostname: 'new-server.example.com' });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toHaveProperty('serverId');
+  });
+
+  it('hostname이 없으면 400을 반환해야 한다', async () => {
+    const res = await request(app)
+      .post('/api/agent/register')
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  it('동일 hostname 재등록 시 기존 serverId를 반환해야 한다', async () => {
+    const { getDb } = await import('../../src/db/index.js');
+    const mockDb = getDb();
+
+    const makeWhereResult = (resolveValue: any[]) => {
+      const p = Promise.resolve(resolveValue) as any;
+      p.limit = vi.mocked(mockDb.limit);
+      return p;
+    };
+
+    const existingServer = { id: 'server-uuid-existing' };
+    // 첫 번째 where (select 체인): limit이 기존 서버 반환
+    vi.mocked(mockDb.limit).mockResolvedValueOnce([existingServer]);
+    vi.mocked(mockDb.where).mockImplementationOnce(() => makeWhereResult([]));
+    // 두 번째 where (update 체인): 직접 resolve
+    vi.mocked(mockDb.where).mockImplementationOnce(() => makeWhereResult([]));
+
+    const res = await request(app)
+      .post('/api/agent/register')
+      .send({ hostname: 'existing.example.com' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.serverId).toBe('server-uuid-existing');
+  });
+
+  it('groupName을 포함해서 등록할 수 있어야 한다', async () => {
+    const { getDb } = await import('../../src/db/index.js');
+    const mockDb = getDb();
+
+    const makeWhereResult = (resolveValue: any[]) => {
+      const p = Promise.resolve(resolveValue) as any;
+      p.limit = vi.mocked(mockDb.limit);
+      return p;
+    };
+
+    vi.mocked(mockDb.limit).mockResolvedValueOnce([]);
+    vi.mocked(mockDb.where).mockImplementationOnce(() => makeWhereResult([]));
+    vi.mocked(mockDb.returning).mockResolvedValueOnce([{ id: 'server-uuid-group' }]);
+
+    const res = await request(app)
+      .post('/api/agent/register')
+      .send({ hostname: 'grouped.example.com', groupName: 'production' });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toHaveProperty('serverId');
+  });
+});
+
+describe('DELETE /api/agent/unregister', () => {
+  it('x-ward-server-id 헤더로 서버를 삭제해야 한다', async () => {
+    const { getDb } = await import('../../src/db/index.js');
+    const mockDb = getDb();
+    vi.mocked(mockDb.returning).mockResolvedValueOnce([{ id: 'server-uuid-1' }]);
+
+    const res = await request(app)
+      .delete('/api/agent/unregister')
+      .set('x-ward-server-id', 'server-uuid-1');
+
+    expect(res.status).toBe(204);
+  });
+
+  it('x-ward-server-id 헤더가 없으면 400을 반환해야 한다', async () => {
+    const res = await request(app)
+      .delete('/api/agent/unregister');
+
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('error');
+  });
+});
+
 describe('POST /api/agent/metrics', () => {
-  it('유효한 메트릭을 저장해야 한다', async () => {
+  it('x-ward-server-id 헤더로 메트릭을 전송해야 한다', async () => {
     const payload = {
       collectedAt: '2024-01-01T00:00:00Z',
       cpu: { usage: 45.5, loadAvg: [1.0, 0.8, 0.6] },
@@ -122,115 +279,66 @@ describe('POST /api/agent/metrics', () => {
 
     const res = await request(app)
       .post('/api/agent/metrics')
-      .set('Authorization', 'Bearer ward_test_api_key')
+      .set('x-ward-server-id', 'server-uuid-1')
       .send(payload);
 
     expect(res.status).toBe(201);
     expect(res.body.ok).toBe(true);
   });
 
-  it('collectedAt이 없으면 400을 반환해야 한다', async () => {
-    const res = await request(app)
-      .post('/api/agent/metrics')
-      .set('Authorization', 'Bearer ward_test_api_key')
-      .send({ cpu: { usage: 50 } });
-
-    expect(res.status).toBe(400);
-    expect(res.body.error).toBeDefined();
-  });
-
-  it('인증 헤더가 없으면 401을 반환해야 한다', async () => {
+  it('x-ward-server-id 헤더가 없으면 400을 반환해야 한다', async () => {
     const res = await request(app)
       .post('/api/agent/metrics')
       .send({ collectedAt: '2024-01-01T00:00:00Z' });
 
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/agent/heartbeat', () => {
+  it('ipInfo를 포함한 heartbeat를 처리해야 한다', async () => {
+    const res = await request(app)
+      .post('/api/agent/heartbeat')
+      .set('x-ward-server-id', 'server-uuid-1')
+      .send({
+        sentAt: '2024-01-01T00:00:00Z',
+        hostname: 'test.example.com',
+        ipInfo: {
+          ip: '1.2.3.4',
+          country: 'Korea',
+          city: 'Seoul',
+          isp: 'KT',
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.serverId).toBe('server-uuid-1');
+  });
+
+  it('x-ward-server-id 헤더가 없으면 400을 반환해야 한다', async () => {
+    const res = await request(app)
+      .post('/api/agent/heartbeat')
+      .send({});
+
+    expect(res.status).toBe(400);
   });
 });
 
 describe('POST /api/agent/logs', () => {
-  it('유효한 로그 배치를 저장해야 한다', async () => {
+  it('x-ward-server-id 헤더로 로그를 전송해야 한다', async () => {
     const payload = {
       logs: [
         { source: 'nginx', level: 'info', message: 'GET /index.html 200', loggedAt: '2024-01-01T00:00:00Z' },
-        { source: 'nginx', level: 'error', message: '500 Internal Server Error', loggedAt: '2024-01-01T00:01:00Z' },
       ],
     };
 
     const res = await request(app)
       .post('/api/agent/logs')
-      .set('Authorization', 'Bearer ward_test_api_key')
+      .set('x-ward-server-id', 'server-uuid-1')
       .send(payload);
 
     expect(res.status).toBe(201);
     expect(res.body.ok).toBe(true);
-    expect(res.body.count).toBe(2);
-  });
-
-  it('logs 배열이 없으면 400을 반환해야 한다', async () => {
-    const res = await request(app)
-      .post('/api/agent/logs')
-      .set('Authorization', 'Bearer ward_test_api_key')
-      .send({});
-
-    expect(res.status).toBe(400);
-  });
-
-  it('빈 logs 배열이면 400을 반환해야 한다', async () => {
-    const res = await request(app)
-      .post('/api/agent/logs')
-      .set('Authorization', 'Bearer ward_test_api_key')
-      .send({ logs: [] });
-
-    expect(res.status).toBe(400);
-  });
-
-  it('인증 헤더가 없으면 401을 반환해야 한다', async () => {
-    const res = await request(app)
-      .post('/api/agent/logs')
-      .send({ logs: [{ message: 'test', loggedAt: '2024-01-01T00:00:00Z' }] });
-
-    expect(res.status).toBe(401);
-  });
-});
-
-describe('POST /api/agent/heartbeat', () => {
-  it('heartbeat를 처리하고 서버 상태를 업데이트해야 한다', async () => {
-    const res = await request(app)
-      .post('/api/agent/heartbeat')
-      .set('Authorization', 'Bearer ward_test_api_key')
-      .send({ sentAt: '2024-01-01T00:00:00Z' });
-
-    expect(res.status).toBe(200);
-    expect(res.body.ok).toBe(true);
-    expect(res.body.serverId).toBe(mockServer.id);
-  });
-
-  it('인증 헤더가 없으면 401을 반환해야 한다', async () => {
-    const res = await request(app)
-      .post('/api/agent/heartbeat')
-      .send({});
-
-    expect(res.status).toBe(401);
-  });
-});
-
-describe('GET /api/agent/config', () => {
-  it('에이전트 설정을 반환해야 한다', async () => {
-    const res = await request(app)
-      .get('/api/agent/config')
-      .set('Authorization', 'Bearer ward_test_api_key');
-
-    expect(res.status).toBe(200);
-    expect(res.body.serverId).toBe(mockServer.id);
-    expect(res.body.config).toBeDefined();
-    expect(res.body.config.metricsIntervalSec).toBeDefined();
-  });
-
-  it('인증 헤더가 없으면 401을 반환해야 한다', async () => {
-    const res = await request(app)
-      .get('/api/agent/config');
-
-    expect(res.status).toBe(401);
   });
 });

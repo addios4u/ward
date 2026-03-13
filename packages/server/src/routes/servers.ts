@@ -1,7 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { getDb, schema } from '../db/index.js';
 import { eq, desc } from 'drizzle-orm';
-import { generateApiKey } from '../lib/apiKey.js';
 import { safeGet, REDIS_KEYS } from '../lib/redis.js';
 import { sessionAuth } from '../middleware/sessionAuth.js';
 
@@ -19,6 +18,11 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction): Promis
         id: schema.servers.id,
         name: schema.servers.name,
         hostname: schema.servers.hostname,
+        groupName: schema.servers.groupName,
+        publicIp: schema.servers.publicIp,
+        country: schema.servers.country,
+        city: schema.servers.city,
+        isp: schema.servers.isp,
         status: schema.servers.status,
         lastSeenAt: schema.servers.lastSeenAt,
         createdAt: schema.servers.createdAt,
@@ -60,49 +64,6 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction): Promis
     );
 
     res.json({ servers: serversWithMetrics });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// POST /api/servers — 서버 등록 + API 키 발급
-router.post('/', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const { name, hostname } = req.body as { name?: string; hostname?: string };
-
-    if (!name || typeof name !== 'string' || name.trim() === '') {
-      res.status(400).json({ error: 'name은 필수입니다.' });
-      return;
-    }
-
-    if (!hostname || typeof hostname !== 'string' || hostname.trim() === '') {
-      res.status(400).json({ error: 'hostname은 필수입니다.' });
-      return;
-    }
-
-    const apiKey = generateApiKey();
-    const db = getDb();
-
-    const [newServer] = await db
-      .insert(schema.servers)
-      .values({
-        name: name.trim(),
-        hostname: hostname.trim(),
-        apiKey,
-        status: 'unknown',
-      })
-      .returning();
-
-    res.status(201).json({
-      server: {
-        id: newServer.id,
-        name: newServer.name,
-        hostname: newServer.hostname,
-        status: newServer.status,
-        createdAt: newServer.createdAt,
-      },
-      apiKey, // 최초 발급 시에만 반환
-    });
   } catch (err) {
     next(err);
   }
