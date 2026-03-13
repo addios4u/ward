@@ -142,7 +142,8 @@ async function main() {
       ]);
       const payload = {
         collectedAt: new Date().toISOString(),
-        cpu, memory, disk, network, processes,
+        cpu, memory, disk, network,
+        processes: processes.processes, // 서버는 배열을 기대함
       };
       const result = await httpClient.sendMetrics(payload);
       reconnectManager.reportResult(result);

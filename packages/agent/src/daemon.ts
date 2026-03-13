@@ -63,7 +63,7 @@ async function collectAndSendMetrics(): Promise<void> {
       memory,
       disk,
       network,
-      processes,
+      processes: processes.processes, // 서버는 배열을 기대함
     };
 
     const result = await httpClient.sendMetrics(payload);

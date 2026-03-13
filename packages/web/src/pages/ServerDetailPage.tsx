@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { serversApi } from '@/lib/api';
 import { MetricsChart } from '@/components/dashboard/MetricsChart';
@@ -71,18 +71,21 @@ export function ServerDetailPage() {
     }
   }, [activeTab, loadLogs, logLevel]);
 
-  // 실시간 WebSocket 로그 수신
-  const handleMessage = useCallback(
-    (msg: WsMessage) => {
-      if (msg.type === 'logs' && activeTab === 'logs') {
+  // 실시간 WebSocket 로그 수신 (refs로 stale closure 방지 + 불필요한 재구독 방지)
+  const activeTabRef = useRef(activeTab);
+  const logLevelRef = useRef(logLevel);
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+  useEffect(() => { logLevelRef.current = logLevel; }, [logLevel]);
+
+  const handleMessage = useCallback((msg: WsMessage) => {
+    if (msg.type === 'logs' && activeTabRef.current === 'logs') {
+      setLogs((prev) => {
         const newLog = msg.data as Log;
-        if (!logLevel || newLog.level === logLevel) {
-          setLogs((prev) => [...prev.slice(-199), newLog]);
-        }
-      }
-    },
-    [logLevel, activeTab]
-  );
+        if (logLevelRef.current && newLog.level !== logLevelRef.current) return prev;
+        return [...prev.slice(-199), newLog];
+      });
+    }
+  }, []);
 
   useWebSocket(handleMessage, serverId);
 
@@ -210,19 +213,18 @@ export function ServerDetailPage() {
               새로고침
             </button>
           </div>
-          {logsLoading ? (
-            <div className="flex items-center justify-center h-48 gap-2 text-gray-400 text-sm">
-              <Spinner size="sm" />
-              <span>로그 불러오는 중...</span>
-            </div>
-          ) : (
-            <div className="h-[calc(100vh-400px)] overflow-hidden">
-              <LogViewer
-                logs={logs}
-                onLevelChange={(level) => setLogLevel(level)}
-              />
-            </div>
-          )}
+          <div className="h-[calc(100vh-400px)] overflow-hidden relative">
+            {logsLoading && logs.length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center gap-2 text-gray-400 text-sm bg-white/80 z-10">
+                <Spinner size="sm" />
+                <span>로그 불러오는 중...</span>
+              </div>
+            )}
+            <LogViewer
+              logs={logs}
+              onLevelChange={(level) => setLogLevel(level)}
+            />
+          </div>
         </div>
       )}
     </div>
