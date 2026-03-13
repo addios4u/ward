@@ -36,20 +36,19 @@ services:
       timeout: 3s
       retries: 5
 
-  server:
+  server-1:
     build:
       context: ..
       dockerfile: docker/Dockerfile.server
     restart: unless-stopped
-    ports:
-      - "${SERVER_PORT:-4000}:4000"
     environment:
       NODE_ENV: production
-      PORT: 4000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ward}:${POSTGRES_PASSWORD}@postgresql:5432/${POSTGRES_DB:-ward}
+      SERVER_PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ward}:${POSTGRES_PASSWORD:-wardpassword}@postgresql:5432/${POSTGRES_DB:-ward}
       REDIS_URL: redis://redis:6379
       SESSION_SECRET: ${SESSION_SECRET}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:4000}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
+      WARD_LEADER: "true"
     depends_on:
       postgresql:
         condition: service_healthy
@@ -57,6 +56,30 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://localhost:4000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server-2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      SERVER_PORT: 4001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ward}:${POSTGRES_PASSWORD:-wardpassword}@postgresql:5432/${POSTGRES_DB:-ward}
+      REDIS_URL: redis://redis:6379
+      SESSION_SECRET: ${SESSION_SECRET}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
+      WARD_LEADER: "false"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:4001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
       interval: 10s
       timeout: 5s
       retries: 5
