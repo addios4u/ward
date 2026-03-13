@@ -31,9 +31,40 @@ export function useWebSocket(
       unsubscribeRef.current = ws.onMessage(handleMessage);
     }
 
+    // serverId가 있으면 연결 후 채널 구독 (onopen 이후 처리)
+    if (serverId) {
+      const subscribeOnOpen = () => {
+        ws.subscribe('metrics', serverId);
+        ws.subscribe('status', serverId);
+      };
+
+      if (ws.isConnected) {
+        // 이미 연결된 경우 즉시 구독
+        subscribeOnOpen();
+      } else {
+        // 연결 대기 후 구독 (100ms 폴링, 최대 5초)
+        let attempts = 0;
+        const maxAttempts = 50;
+        const pollTimer = setInterval(() => {
+          attempts++;
+          if (ws.isConnected) {
+            clearInterval(pollTimer);
+            subscribeOnOpen();
+          } else if (attempts >= maxAttempts) {
+            clearInterval(pollTimer);
+          }
+        }, 100);
+
+        return () => {
+          clearInterval(pollTimer);
+          unsubscribeRef.current?.();
+        };
+      }
+    }
+
     return () => {
       // 정리: 핸들러 해제
       unsubscribeRef.current?.();
     };
-  }, [handleMessage, onMessage]);
+  }, [handleMessage, onMessage, serverId]);
 }

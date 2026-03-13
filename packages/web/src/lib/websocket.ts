@@ -24,6 +24,7 @@ export class WardWebSocket {
   connect(): void {
     if (this.ws?.readyState === WebSocket.OPEN) return;
 
+    // WebSocket은 쿠키를 자동으로 전송하므로 별도 인증 헤더 불필요
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
@@ -69,6 +70,18 @@ export class WardWebSocket {
     }
     this.ws?.close();
     this.ws = null;
+  }
+
+  // 메시지 전송
+  send(data: object): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(data));
+    }
+  }
+
+  // 채널 구독
+  subscribe(channel: 'metrics' | 'logs' | 'status', serverId: string): void {
+    this.send({ type: 'subscribe', channel, serverId });
   }
 
   // 메시지 핸들러 등록
