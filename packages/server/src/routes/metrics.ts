@@ -3,7 +3,7 @@ import { getDb, schema } from '../db/index.js';
 import { eq, desc } from 'drizzle-orm';
 import { sessionAuth } from '../middleware/sessionAuth.js';
 
-const router = Router();
+const router: Router = Router();
 
 // UUID 형식 검증 정규식
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -14,7 +14,7 @@ router.use(sessionAuth);
 // GET /api/servers/:id/metrics — 메트릭 히스토리 조회
 router.get('/:id/metrics', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params['id'] as string;
 
     // UUID 형식 검증
     if (!UUID_REGEX.test(id)) {
@@ -56,7 +56,7 @@ router.get('/:id/metrics', async (req: Request, res: Response, next: NextFunctio
 // GET /api/servers/:id/status — 최신 상태 조회
 router.get('/:id/status', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params['id'] as string;
 
     // UUID 형식 검증
     if (!UUID_REGEX.test(id)) {

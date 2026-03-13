@@ -3,7 +3,7 @@ import { getDb, schema } from '../db/index.js';
 import { eq, desc } from 'drizzle-orm';
 import { sessionAuth } from '../middleware/sessionAuth.js';
 
-const router = Router();
+const router: Router = Router();
 
 // 모든 서비스 라우트에 세션 인증 적용
 router.use(sessionAuth);
@@ -70,12 +70,12 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction): Promis
 
 // GET /api/servers/:id/processes — 특정 서버의 최신 프로세스 목록 반환
 // 이 라우터는 /api/servers 에 마운트되므로 경로는 /:id/processes
-export const processesRouter = Router();
+export const processesRouter: Router = Router();
 processesRouter.use(sessionAuth);
 
 processesRouter.get('/:id/processes', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params['id'] as string;
     const db = getDb();
 
     // 서버 존재 여부 확인

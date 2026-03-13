@@ -3,7 +3,7 @@ import { getDb, schema } from '../db/index.js';
 import { eq, desc, and } from 'drizzle-orm';
 import { sessionAuth } from '../middleware/sessionAuth.js';
 
-const router = Router();
+const router: Router = Router();
 
 // UUID 형식 검증 정규식
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -14,7 +14,7 @@ router.use(sessionAuth);
 // GET /api/servers/:id/logs — 로그 조회 (레벨 필터, 페이지네이션)
 router.get('/:id/logs', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params['id'] as string;
 
     // UUID 형식 검증
     if (!UUID_REGEX.test(id)) {

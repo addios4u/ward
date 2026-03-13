@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { sessionAuth } from '../middleware/sessionAuth.js';
 
-const router = Router();
+const router: Router = Router();
 
 // 모든 사용자 관리 API에 세션 인증 적용
 router.use(sessionAuth);
@@ -81,7 +81,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction): Promis
 // DELETE /api/users/:id — 사용자 삭제
 router.delete('/:id', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params['id'] as string;
     const db = getDb();
 
     // 전체 사용자 수 확인 (최소 1명 유지)
@@ -114,7 +114,7 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction): P
 // PATCH /api/users/:id/password — 비밀번호 변경
 router.patch('/:id/password', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params['id'] as string;
     const { password } = req.body as { password?: string };
 
     if (!password || typeof password !== 'string' || password.trim() === '') {

@@ -6,7 +6,7 @@ import { sessionAuth } from '../middleware/sessionAuth.js';
 import { LoginGuard } from '../services/LoginGuard.js';
 import { CaptchaService } from '../services/CaptchaService.js';
 
-const router = Router();
+const router: Router = Router();
 const loginGuard = new LoginGuard();
 const captchaService = new CaptchaService();
 
@@ -102,7 +102,7 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction): P
     await loginGuard.recordSuccess(ip);
 
     // 세션에 userId 저장
-    req.session.userId = user.id;
+    (req.session as any).userId = user.id;
     await new Promise<void>((resolve, reject) => {
       req.session.save((err) => {
         if (err) reject(err);
@@ -139,7 +139,7 @@ router.get('/me', sessionAuth, async (req: Request, res: Response, next: NextFun
     const [user] = await db
       .select({ id: schema.users.id, email: schema.users.email })
       .from(schema.users)
-      .where(eq(schema.users.id, req.session.userId!))
+      .where(eq(schema.users.id, (req.session as any).userId as string))
       .limit(1);
 
     if (!user) {

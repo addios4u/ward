@@ -4,7 +4,7 @@ import { eq, desc } from 'drizzle-orm';
 import { safeGet, REDIS_KEYS } from '../lib/redis.js';
 import { sessionAuth } from '../middleware/sessionAuth.js';
 
-const router = Router();
+const router: Router = Router();
 
 // 모든 서버 관리 API에 세션 인증 적용
 router.use(sessionAuth);
@@ -72,7 +72,7 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction): Promis
 // DELETE /api/servers/:id — 서버 삭제
 router.delete('/:id', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params['id'] as string;
     const db = getDb();
 
     const [deleted] = await db

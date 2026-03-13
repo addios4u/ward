@@ -8,7 +8,6 @@ import { RedisStore as RateLimitRedisStore } from 'rate-limit-redis';
 import { createServer } from 'http';
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 import healthRouter from './routes/health.js';
 import serversRouter from './routes/servers.js';
 import agentRouter from './routes/agent.js';
@@ -21,7 +20,7 @@ import { WsManager } from './websocket/WsManager.js';
 import { getSessionStoreClient, getPubClient } from './lib/redis.js';
 import { config } from './config/index.js';
 
-export function createApp() {
+export function createApp(): express.Application {
   const app = express();
 
   // Nginx 프록시 환경에서 req.ip가 올바른 클라이언트 IP를 반환하도록 설정
@@ -66,7 +65,8 @@ export function createApp() {
     prefix: 'ward:session:',
   });
 
-  app.use(session({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  app.use((session as any)({
     store,
     name: 'ward.sid',
     secret: sessionSecret || 'dev-secret-change-in-production',
@@ -141,10 +141,6 @@ export function createApp() {
   app.use('/api/servers', apiLimiter, processesRouter);
   app.use('/api/services', apiLimiter, servicesRouter);
   app.use('/api/users', apiLimiter, usersRouter);
-
-  // ESM __dirname 폴리필
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
 
   // 프로덕션: web/dist 정적 파일 서빙
   // 개발: Vite dev server가 별도로 실행되므로 스킵
