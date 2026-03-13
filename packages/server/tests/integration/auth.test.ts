@@ -2,6 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
 
+// vi.hoisted: vi.mock 팩토리보다 먼저 실행되어 모킹 객체를 공유할 수 있음
+const mockRedisClient = vi.hoisted(() => ({
+  on: vi.fn(),
+  connect: vi.fn().mockResolvedValue(undefined),
+  get: vi.fn().mockResolvedValue(null),
+  set: vi.fn().mockResolvedValue('OK'),
+  incr: vi.fn().mockResolvedValue(1),
+  expire: vi.fn().mockResolvedValue(1),
+  del: vi.fn().mockResolvedValue(1),
+  ttl: vi.fn().mockResolvedValue(-2),
+  publish: vi.fn().mockResolvedValue(1),
+}));
+
 // ws 모킹
 vi.mock('ws', () => ({
   WebSocketServer: vi.fn().mockImplementation(() => ({
@@ -21,13 +34,7 @@ vi.mock('../../src/lib/redis.js', () => ({
     subscribe: vi.fn(),
     connect: vi.fn().mockResolvedValue(undefined),
   }),
-  getPubClient: vi.fn().mockReturnValue({
-    on: vi.fn(),
-    connect: vi.fn().mockResolvedValue(undefined),
-    get: vi.fn().mockResolvedValue(null),
-    set: vi.fn().mockResolvedValue('OK'),
-    publish: vi.fn().mockResolvedValue(1),
-  }),
+  getPubClient: vi.fn().mockReturnValue(mockRedisClient),
   REDIS_CHANNELS: {
     metrics: (id: string) => `ward:metrics:${id}`,
     logs: (id: string) => `ward:logs:${id}`,
@@ -115,6 +122,12 @@ const app = createApp();
 describe('POST /api/auth/login', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // 기본: 차단 안 됨, 실패 횟수 0
+    mockRedisClient.get.mockResolvedValue(null);
+    mockRedisClient.incr.mockResolvedValue(1);
+    mockRedisClient.expire.mockResolvedValue(1);
+    mockRedisClient.del.mockResolvedValue(1);
+    mockRedisClient.ttl.mockResolvedValue(-2);
   });
 
   it('올바른 자격증명으로 로그인 시 세션 쿠키를 발급해야 한다', async () => {
@@ -165,6 +178,41 @@ describe('POST /api/auth/login', () => {
 
     expect(res.status).toBe(401);
     expect(res.body).toHaveProperty('error');
+  });
+
+  it('차단된 IP에서 로그인 시 429를 반환해야 한다', async () => {
+    // ward:login:blocked:{ip} 키가 존재 → 차단 상태
+    mockRedisClient.get.mockImplementation((key: string) => {
+      if (key.startsWith('ward:login:blocked:')) return Promise.resolve('1');
+      return Promise.resolve(null);
+    });
+    mockRedisClient.ttl.mockResolvedValue(3540);
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'admin@example.com', password: 'password123' });
+
+    expect(res.status).toBe(429);
+    expect(res.body).toHaveProperty('error');
+    expect(res.body).toHaveProperty('remainingSeconds');
+  });
+
+  it('5번 실패 후 차단 키를 설정해야 한다', async () => {
+    // 5번째 incr → 5 반환 → 차단 키 설정
+    mockRedisClient.incr.mockResolvedValue(5);
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'admin@example.com', password: 'wrongpassword' });
+
+    // 5번째 실패 시 차단 키 설정 확인
+    expect(mockRedisClient.set).toHaveBeenCalledWith(
+      expect.stringContaining('ward:login:blocked:'),
+      '1',
+      'EX',
+      3600,
+    );
+    expect(res.status).toBe(401);
   });
 });
 

@@ -3,8 +3,10 @@ import { getDb, schema } from '../db/index.js';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { sessionAuth } from '../middleware/sessionAuth.js';
+import { LoginGuard } from '../services/LoginGuard.js';
 
 const router = Router();
+const loginGuard = new LoginGuard();
 
 // POST /api/auth/login — 이메일/비밀번호 검증 + 세션 발급
 router.post('/login', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -21,6 +23,22 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction): P
       return;
     }
 
+    // 클라이언트 IP 확인
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+      || req.socket.remoteAddress
+      || 'unknown';
+
+    // IP 차단 여부 확인
+    const blocked = await loginGuard.isBlocked(ip);
+    if (blocked) {
+      const remainingSeconds = await loginGuard.getBlockRemainingSeconds(ip);
+      res.status(429).json({
+        error: `로그인 시도 횟수 초과로 차단되었습니다. ${remainingSeconds}초 후에 다시 시도하세요.`,
+        remainingSeconds,
+      });
+      return;
+    }
+
     const db = getDb();
     const [user] = await db
       .select()
@@ -29,15 +47,20 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction): P
       .limit(1);
 
     if (!user) {
+      await loginGuard.recordFailure(ip);
       res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
       return;
     }
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
+      await loginGuard.recordFailure(ip);
       res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
       return;
     }
+
+    // 로그인 성공: 실패 기록 초기화
+    await loginGuard.recordSuccess(ip);
 
     // 세션에 userId 저장
     req.session.userId = user.id;
