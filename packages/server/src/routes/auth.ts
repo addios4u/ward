@@ -4,14 +4,27 @@ import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { sessionAuth } from '../middleware/sessionAuth.js';
 import { LoginGuard } from '../services/LoginGuard.js';
+import { CaptchaService } from '../services/CaptchaService.js';
 
 const router = Router();
 const loginGuard = new LoginGuard();
+const captchaService = new CaptchaService();
+
+// GET /api/auth/captcha — 수학 문제 생성 + 서명된 토큰 반환
+router.get('/captcha', (_req: Request, res: Response): void => {
+  const { token, question } = captchaService.generate();
+  res.json({ token, question });
+});
 
 // POST /api/auth/login — 이메일/비밀번호 검증 + 세션 발급
 router.post('/login', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { email, password } = req.body as { email?: string; password?: string };
+    const { email, password, captchaToken, captchaAnswer } = req.body as {
+      email?: string;
+      password?: string;
+      captchaToken?: string;
+      captchaAnswer?: string;
+    };
 
     if (!email || typeof email !== 'string' || email.trim() === '') {
       res.status(400).json({ error: 'email은 필수입니다.' });
@@ -37,6 +50,23 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction): P
         remainingSeconds,
       });
       return;
+    }
+
+    // 실패 횟수 3회 이상이면 CAPTCHA 검증 필요
+    const attempts = await loginGuard.getAttempts(ip);
+    if (attempts >= 3) {
+      if (!captchaToken || !captchaAnswer) {
+        res.status(400).json({ error: '보안 captcha 검증이 필요합니다.' });
+        return;
+      }
+      const captchaResult = captchaService.verify(captchaToken, captchaAnswer);
+      if (captchaResult !== 'ok') {
+        const message = captchaResult === 'expired'
+          ? 'captcha가 만료되었습니다. 새로 발급받아 주세요.'
+          : 'captcha 답변이 올바르지 않습니다.';
+        res.status(400).json({ error: message });
+        return;
+      }
     }
 
     const db = getDb();
