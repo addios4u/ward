@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import morgan from 'morgan';
 import session from 'express-session';
 import { RedisStore } from 'connect-redis';
 import helmet from 'helmet';
@@ -36,6 +37,9 @@ export function createApp(): express.Application {
     origin: true,
     credentials: true,
   }));
+
+  // HTTP access log (stdout → ServiceWatcher가 캡처해서 대시보드로 전달)
+  app.use(morgan('combined'));
 
   app.use(express.json());
 

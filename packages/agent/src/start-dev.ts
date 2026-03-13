@@ -1,9 +1,12 @@
-// 개발 모드 에이전트: 이미 실행 중인 dev 서버에 연결해서 메트릭/로그 전송
+// 개발 모드 에이전트: Ward dev 서버를 직접 시작·감시하고 메트릭/로그를 대시보드에 전송
 import * as os from 'os';
+import * as path from 'path';
 import { saveState } from './config/AgentConfig.js';
 import { HttpClient } from './transport/HttpClient.js';
 import { ReconnectManager } from './transport/ReconnectManager.js';
 import { Queue } from './transport/Queue.js';
+import { ServiceWatcher } from './logs/ServiceWatcher.js';
+import { LogForwarder } from './logs/LogForwarder.js';
 import { CpuCollector } from './metrics/CpuCollector.js';
 import { MemoryCollector } from './metrics/MemoryCollector.js';
 import { DiskCollector } from './metrics/DiskCollector.js';
@@ -17,6 +20,9 @@ const METRICS_INTERVAL = parseInt(process.env['AGENT_METRICS_INTERVAL'] ?? '15',
 const HOSTNAME = os.hostname();
 const MAX_RETRIES = 60;
 const RETRY_INTERVAL_MS = 3000;
+
+// 서버 소스 경로 (packages/agent/src → packages/server/src)
+const serverEntry = path.resolve(__dirname, '../../server/src/index.ts');
 
 async function registerWithRetry(client: HttpClient): Promise<string> {
   for (let i = 0; i < MAX_RETRIES; i++) {
@@ -35,12 +41,30 @@ async function registerWithRetry(client: HttpClient): Promise<string> {
 async function main() {
   console.log(`[dev-agent] Ward 개발 모드 에이전트 시작 (서버: ${SERVER_URL})`);
 
+  // ServiceWatcher로 Ward dev 서버 시작 (tsx watch → 파일 변경 시 자동 재시작)
+  const serviceWatcher = new ServiceWatcher();
+  serviceWatcher.watch({
+    name: 'ward-server',
+    method: 'exec',
+    command: `tsx watch ${serverEntry}`,
+    restartDelay: 2000,
+  });
+  console.log('[dev-agent] Ward dev 서버 시작 중...');
+
+  // 서버 부팅 대기 후 등록
   const tempClient = new HttpClient({ serverUrl: SERVER_URL, serverId: '' });
   const serverId = await registerWithRetry(tempClient);
   saveState({ serverId, serverUrl: SERVER_URL, hostname: HOSTNAME });
 
   const httpClient = new HttpClient({ serverUrl: SERVER_URL, serverId });
   const queue = new Queue({ maxSize: 1000, maxRetries: 3 });
+
+  // 로그 포워더: 서버 stdout/stderr → 대시보드
+  const logForwarder = new LogForwarder({ client: httpClient });
+  serviceWatcher.on('line', (source: string, line: string) => {
+    logForwarder.addLog(source, line);
+  });
+  logForwarder.start();
 
   const cpuCollector = new CpuCollector();
   const memoryCollector = new MemoryCollector();
@@ -103,6 +127,8 @@ async function main() {
     clearInterval(metricsTimer);
     clearInterval(heartbeatTimer);
     reconnectManager.destroy();
+    serviceWatcher.unwatchAll();
+    void logForwarder.stop();
     process.exit(0);
   };
 
