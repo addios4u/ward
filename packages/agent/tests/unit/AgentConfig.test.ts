@@ -32,7 +32,7 @@ describe('AgentConfig', () => {
       const jsonContent = JSON.stringify({
         server: { url: 'http://my-server:4000', groupName: 'prod' },
         metrics: { interval: 30 },
-        logs: [{ path: '/var/log/nginx/access.log', type: 'nginx' }],
+        services: [{ name: 'nginx', method: 'file', paths: ['/var/log/nginx/access.log'] }],
       });
       mockFs.existsSync.mockReturnValue(true);
       mockFs.readFileSync.mockReturnValue(jsonContent);
@@ -44,8 +44,8 @@ describe('AgentConfig', () => {
       expect(config!.server.url).toBe('http://my-server:4000');
       expect(config!.server.groupName).toBe('prod');
       expect(config!.metrics.interval).toBe(30);
-      expect(config!.logs).toHaveLength(1);
-      expect(config!.logs[0]?.path).toBe('/var/log/nginx/access.log');
+      expect(config!.services).toHaveLength(1);
+      expect(config!.services[0]?.name).toBe('nginx');
     });
 
     it('설정 파일 파싱 오류 시 null을 반환해야 한다', async () => {
@@ -72,7 +72,7 @@ describe('AgentConfig', () => {
       const config = {
         server: { url: 'http://test:3000' },
         metrics: { interval: 15 },
-        logs: [],
+        services: [] as never[],
       };
 
       saveConfig(config);
@@ -92,13 +92,44 @@ describe('AgentConfig', () => {
       saveConfig({
         server: { url: 'http://test:3000' },
         metrics: { interval: 10 },
-        logs: [],
+        services: [],
       });
 
       expect(mockFs.mkdirSync).toHaveBeenCalledWith(
         expect.stringContaining('.ward'),
         { recursive: true }
       );
+    });
+  });
+
+  describe('addService / removeService', () => {
+    it('addService는 새 서비스를 추가해야 한다', async () => {
+      const { addService } = await import('../../src/config/AgentConfig.js');
+      const config = { server: { url: '' }, metrics: { interval: 30 }, services: [] };
+      const result = addService(config, { name: 'nginx', method: 'file' as const, paths: ['/var/log/nginx/access.log'] });
+      expect(result.services).toHaveLength(1);
+      expect(result.services[0]?.name).toBe('nginx');
+    });
+
+    it('addService는 동일 name이 있으면 교체해야 한다', async () => {
+      const { addService } = await import('../../src/config/AgentConfig.js');
+      const config = {
+        server: { url: '' }, metrics: { interval: 30 },
+        services: [{ name: 'nginx', method: 'file' as const, paths: ['/old.log'] }],
+      };
+      const result = addService(config, { name: 'nginx', method: 'file' as const, paths: ['/new.log'] });
+      expect(result.services).toHaveLength(1);
+      expect((result.services[0] as { paths: string[] }).paths[0]).toBe('/new.log');
+    });
+
+    it('removeService는 해당 서비스를 제거해야 한다', async () => {
+      const { removeService } = await import('../../src/config/AgentConfig.js');
+      const config = {
+        server: { url: '' }, metrics: { interval: 30 },
+        services: [{ name: 'nginx', method: 'file' as const, paths: [] }],
+      };
+      const result = removeService(config, 'nginx');
+      expect(result.services).toHaveLength(0);
     });
   });
 
@@ -157,7 +188,7 @@ describe('AgentConfig', () => {
       const errors = validateConfig({
         server: { url: 'http://test:3000' },
         metrics: { interval: 10 },
-        logs: [],
+        services: [],
       });
 
       expect(errors).toHaveLength(0);
@@ -169,7 +200,7 @@ describe('AgentConfig', () => {
       const errors = validateConfig({
         server: { url: '' },
         metrics: { interval: 10 },
-        logs: [],
+        services: [],
       });
 
       expect(errors.length).toBeGreaterThan(0);
@@ -182,7 +213,7 @@ describe('AgentConfig', () => {
       const errors = validateConfig({
         server: { url: 'http://test:3000' },
         metrics: { interval: 0 },
-        logs: [],
+        services: [],
       });
 
       expect(errors.length).toBeGreaterThan(0);
@@ -193,28 +224,24 @@ describe('AgentConfig', () => {
     it('getWardDir는 홈 디렉토리 하위의 .ward 경로를 반환해야 한다', async () => {
       const { getWardDir } = await import('../../src/config/AgentConfig.js');
       const wardDir = getWardDir();
-
       expect(wardDir).toBe(path.join(os.homedir(), '.ward'));
     });
 
     it('getConfigPath는 config.json 경로를 반환해야 한다', async () => {
       const { getConfigPath } = await import('../../src/config/AgentConfig.js');
       const configPath = getConfigPath();
-
       expect(configPath).toBe(path.join(os.homedir(), '.ward', 'config.json'));
     });
 
     it('getStatePath는 state.json 경로를 반환해야 한다', async () => {
       const { getStatePath } = await import('../../src/config/AgentConfig.js');
       const statePath = getStatePath();
-
       expect(statePath).toBe(path.join(os.homedir(), '.ward', 'state.json'));
     });
 
     it('getPidPath는 agent.pid 경로를 반환해야 한다', async () => {
       const { getPidPath } = await import('../../src/config/AgentConfig.js');
       const pidPath = getPidPath();
-
       expect(pidPath).toBe(path.join(os.homedir(), '.ward', 'agent.pid'));
     });
   });

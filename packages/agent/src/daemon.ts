@@ -10,8 +10,8 @@ import { IpCollector } from './metrics/IpCollector.js';
 import { HttpClient, SendResult } from './transport/HttpClient.js';
 import { ReconnectManager } from './transport/ReconnectManager.js';
 import { Queue } from './transport/Queue.js';
-import { LogWatcher } from './logs/LogWatcher.js';
 import { LogForwarder } from './logs/LogForwarder.js';
+import { ServiceWatcher } from './logs/ServiceWatcher.js';
 
 // 각 수집기 인스턴스 생성
 const cpuCollector = new CpuCollector();
@@ -28,7 +28,7 @@ let httpClient: HttpClient;
 let reconnectManager: ReconnectManager;
 let metricsInterval: ReturnType<typeof setInterval>;
 let heartbeatInterval: ReturnType<typeof setInterval>;
-let logWatcher: LogWatcher;
+let serviceWatcher: ServiceWatcher;
 let logForwarder: LogForwarder;
 let currentHostname: string;
 
@@ -134,19 +134,17 @@ export async function startDaemon(): Promise<void> {
   console.log(`서버: ${state.serverUrl}`);
   console.log(`메트릭 수집 주기: ${interval}초`);
 
-  // LogWatcher/LogForwarder 초기화 및 연결
-  logWatcher = new LogWatcher();
+  // ServiceWatcher/LogForwarder 초기화 및 연결
+  serviceWatcher = new ServiceWatcher();
   logForwarder = new LogForwarder({ client: httpClient });
 
-  // 설정의 logs 배열로 로그 파일 감시 등록
-  if (config?.logs) {
-    for (const logConfig of config.logs) {
-      logWatcher.watch(logConfig.path, logConfig.type);
-    }
+  // 설정의 services 배열로 서비스 감시 등록
+  for (const svc of config?.services ?? []) {
+    serviceWatcher.watch(svc);
   }
 
-  // LogWatcher 이벤트를 LogForwarder에 연결
-  logWatcher.on('line', (source: string, line: string) => {
+  // ServiceWatcher 이벤트를 LogForwarder에 연결
+  serviceWatcher.on('line', (source: string, line: string) => {
     logForwarder.addLog(source, line);
   });
 
@@ -164,13 +162,26 @@ export async function startDaemon(): Promise<void> {
   await sendHeartbeat();
 }
 
+// SIGUSR1: ward service add/remove 후 설정 재로드
+process.on('SIGUSR1', () => {
+  console.log('설정 재로드 중...');
+  const newConfig = loadConfig();
+  const services = newConfig?.services ?? [];
+  // 기존 서비스 모두 해제 후 새 설정으로 재시작
+  serviceWatcher?.unwatchAll();
+  for (const svc of services) {
+    serviceWatcher?.watch(svc);
+  }
+  console.log(`서비스 재로드 완료: ${services.map(s => s.name).join(', ') || '(없음)'}`);
+});
+
 // 종료 시그널 처리
 process.on('SIGTERM', () => {
   console.log('에이전트 데몬 종료 중...');
   clearInterval(metricsInterval);
   clearInterval(heartbeatInterval);
   reconnectManager?.destroy();
-  logWatcher?.unwatchAll();
+  serviceWatcher?.unwatchAll();
   void logForwarder?.stop();
   process.exit(0);
 });
@@ -180,7 +191,7 @@ process.on('SIGINT', () => {
   clearInterval(metricsInterval);
   clearInterval(heartbeatInterval);
   reconnectManager?.destroy();
-  logWatcher?.unwatchAll();
+  serviceWatcher?.unwatchAll();
   void logForwarder?.stop();
   process.exit(0);
 });

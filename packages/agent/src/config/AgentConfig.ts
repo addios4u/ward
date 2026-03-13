@@ -3,10 +3,8 @@ import * as path from 'path';
 import * as os from 'os';
 
 // 에이전트 설정 타입 정의
-export interface LogConfig {
-  path: string;
-  type: string;
-}
+import type { ServiceConfig } from './ServiceConfig.js';
+export type { ServiceConfig } from './ServiceConfig.js';
 
 // 설정 (ward start로 설정, ~/.ward/config.json에 저장)
 export interface AgentConfig {
@@ -17,7 +15,7 @@ export interface AgentConfig {
   metrics: {
     interval: number;   // 메트릭 수집 주기 (초)
   };
-  logs: LogConfig[];
+  services: ServiceConfig[];  // 로그 수집 서비스 목록
 }
 
 // 하위 호환성을 위한 별칭
@@ -38,7 +36,7 @@ const DEFAULT_CONFIG: AgentConfig = {
   metrics: {
     interval: 30,
   },
-  logs: [],
+  services: [],
 };
 
 // Ward 설정 디렉토리 경로
@@ -81,7 +79,7 @@ export function loadConfig(): AgentConfig | null {
       metrics: {
         interval: parsed?.metrics?.interval ?? DEFAULT_CONFIG.metrics.interval,
       },
-      logs: parsed?.logs ?? DEFAULT_CONFIG.logs,
+      services: parsed?.services ?? DEFAULT_CONFIG.services,
     };
   } catch (error) {
     console.error('설정 파일 로드 실패:', error);
@@ -129,6 +127,17 @@ export function saveState(state: AgentState): void {
 
   const statePath = getStatePath();
   fs.writeFileSync(statePath, JSON.stringify(state, null, 2), 'utf-8');
+}
+
+// 서비스 추가 (동일 name이면 교체)
+export function addService(config: AgentConfig, service: ServiceConfig): AgentConfig {
+  const filtered = config.services.filter(s => s.name !== service.name);
+  return { ...config, services: [...filtered, service] };
+}
+
+// 서비스 제거
+export function removeService(config: AgentConfig, name: string): AgentConfig {
+  return { ...config, services: config.services.filter(s => s.name !== name) };
 }
 
 // 설정 유효성 검사
