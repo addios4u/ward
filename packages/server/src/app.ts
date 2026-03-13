@@ -32,9 +32,10 @@ export function createApp(): express.Application {
   }));
 
   // CORS: ALLOWED_ORIGINS 환경변수로 허용 origin 지정
+  // 미설정 시 self-hosted 환경 특성상 모든 origin 허용 (반영 방식)
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
-    : ['http://localhost:3000', 'http://localhost:4000'];
+    : null;
 
   app.use(cors({
     origin: (origin, callback) => {
@@ -43,7 +44,8 @@ export function createApp(): express.Application {
         callback(null, true);
         return;
       }
-      if (allowedOrigins.includes(origin)) {
+      // ALLOWED_ORIGINS 미설정 시 모든 origin 반영 허용
+      if (!allowedOrigins || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error(`CORS 정책에 의해 차단됨: ${origin}`));
