@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { Log, LogLevel } from '@/types';
 
 interface LogViewerProps {
@@ -19,10 +19,27 @@ const levelStyles: Record<string, string> = {
 // 로그 뷰어 컴포넌트
 export function LogViewer({ logs, onLevelChange }: LogViewerProps) {
   const [selectedLevel, setSelectedLevel] = useState<LogLevel | ''>('');
+  const logContainerRef = useRef<HTMLDivElement>(null);
+  const isUserScrollingRef = useRef(false);
 
   const handleLevelChange = (level: LogLevel | '') => {
     setSelectedLevel(level);
     onLevelChange?.(level);
+  };
+
+  // 새 로그 추가 시 자동 스크롤 (사용자가 위로 스크롤 중이면 중지)
+  useEffect(() => {
+    if (!isUserScrollingRef.current && logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [logs]);
+
+  // 사용자 스크롤 감지: 하단 근처면 자동 스크롤 재활성화
+  const handleScroll = () => {
+    const el = logContainerRef.current;
+    if (!el) return;
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    isUserScrollingRef.current = !isAtBottom;
   };
 
   return (
@@ -45,7 +62,11 @@ export function LogViewer({ logs, onLevelChange }: LogViewerProps) {
       </div>
 
       {/* 로그 목록 */}
-      <div className="flex-1 overflow-y-auto bg-gray-900 rounded-lg p-4 font-mono text-xs">
+      <div
+        ref={logContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto bg-gray-900 rounded-lg p-4 font-mono text-xs"
+      >
         {logs.length === 0 ? (
           <div className="text-gray-500 text-center py-4">로그가 없습니다.</div>
         ) : (

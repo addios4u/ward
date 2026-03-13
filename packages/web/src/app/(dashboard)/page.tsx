@@ -1,9 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { serversApi } from '@/lib/api';
 import { ServerCard } from '@/components/dashboard/ServerCard';
+import { Spinner } from '@/components/ui/Spinner';
+import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import type { Server } from '@/types';
+
+const POLL_INTERVAL_MS = 30_000;
 
 // 전체 서버 목록 페이지
 export default function DashboardPage() {
@@ -11,11 +15,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchServers = useCallback(() => {
     serversApi
       .list()
       .then((res) => {
         setServers(res.servers);
+        setError(null);
         setLoading(false);
       })
       .catch((err: Error) => {
@@ -24,20 +29,25 @@ export default function DashboardPage() {
       });
   }, []);
 
+  useEffect(() => {
+    fetchServers();
+
+    // 30초마다 서버 목록 갱신
+    const timer = setInterval(fetchServers, POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [fetchServers]);
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
-        로딩 중...
+      <div className="flex items-center justify-center h-64 gap-3 text-gray-500">
+        <Spinner size="md" />
+        <span>서버 목록 불러오는 중...</span>
       </div>
     );
   }
 
   if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-        오류: {error}
-      </div>
-    );
+    return <ErrorMessage message={error} onRetry={fetchServers} />;
   }
 
   return (
