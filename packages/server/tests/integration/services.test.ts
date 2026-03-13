@@ -27,6 +27,9 @@ vi.mock('../../src/lib/redis.js', () => ({
     get: vi.fn().mockResolvedValue(null),
     set: vi.fn().mockResolvedValue('OK'),
     publish: vi.fn().mockResolvedValue(1),
+    evalsha: vi.fn().mockResolvedValue([1, Math.floor(Date.now() / 1000) + 60]),
+    script: vi.fn().mockResolvedValue("sha1234"),
+    eval: vi.fn().mockResolvedValue(0),
   }),
   REDIS_CHANNELS: {
     metrics: (id: string) => `ward:metrics:${id}`,

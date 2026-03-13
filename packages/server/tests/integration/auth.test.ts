@@ -23,6 +23,9 @@ const mockRedisClient = vi.hoisted(() => ({
   del: vi.fn().mockResolvedValue(1),
   ttl: vi.fn().mockResolvedValue(-2),
   publish: vi.fn().mockResolvedValue(1),
+  evalsha: vi.fn().mockResolvedValue([1, Math.floor(Date.now() / 1000) + 60]),
+  script: vi.fn().mockResolvedValue('sha1234'),
+  eval: vi.fn().mockResolvedValue([1, Math.floor(Date.now() / 1000) + 60]),
 }));
 
 // ws 모킹

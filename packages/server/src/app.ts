@@ -4,6 +4,7 @@ import session from 'express-session';
 import { RedisStore } from 'connect-redis';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { RedisStore as RateLimitRedisStore } from 'rate-limit-redis';
 import { createServer } from 'http';
 import path from 'path';
 import fs from 'fs';
@@ -17,7 +18,7 @@ import logsRouter from './routes/logs.js';
 import servicesRouter, { processesRouter } from './routes/services.js';
 import usersRouter from './routes/users.js';
 import { WsManager } from './websocket/WsManager.js';
-import { getSessionStoreClient } from './lib/redis.js';
+import { getSessionStoreClient, getPubClient } from './lib/redis.js';
 import { config } from './config/index.js';
 
 export function createApp() {
@@ -79,6 +80,17 @@ export function createApp() {
     },
   }));
 
+  // ioredis 클라이언트로 rate-limit-redis sendCommand 래핑
+  // ioredis는 모든 Redis 명령어를 소문자 메서드로 노출 (예: evalsha, script)
+  const ioRedis = getPubClient();
+  const sendCommand = async (command: string, ...args: string[]): Promise<import('rate-limit-redis').RedisReply> => {
+    const method = (ioRedis as any)[command.toLowerCase()];
+    if (typeof method === 'function') {
+      return await method.apply(ioRedis, args) as import('rate-limit-redis').RedisReply;
+    }
+    throw new Error(`Unknown Redis command: ${command}`);
+  };
+
   // Rate Limiting: API 전체 분당 100회
   const apiLimiter = rateLimit({
     windowMs: 60 * 1000,
@@ -86,6 +98,10 @@ export function createApp() {
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: '요청 횟수 초과. 잠시 후 다시 시도해주세요.' },
+    store: new RateLimitRedisStore({
+      sendCommand,
+      prefix: 'ward:rl:api:',
+    }),
   });
 
   // Rate Limiting: 로그인 엔드포인트 분당 10회
@@ -95,6 +111,10 @@ export function createApp() {
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: '로그인 시도 횟수 초과. 잠시 후 다시 시도해주세요.' },
+    store: new RateLimitRedisStore({
+      sendCommand,
+      prefix: 'ward:rl:login:',
+    }),
   });
 
   // 에이전트 엔드포인트: 분당 500회 (더 높은 한도)
@@ -104,6 +124,10 @@ export function createApp() {
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: '에이전트 요청 횟수 초과.' },
+    store: new RateLimitRedisStore({
+      sendCommand,
+      prefix: 'ward:rl:agent:',
+    }),
   });
 
   // 라우터
