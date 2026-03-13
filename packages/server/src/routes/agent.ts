@@ -29,12 +29,19 @@ router.post('/metrics', async (req: Request, res: Response, next: NextFunction):
       return;
     }
 
+    // collectedAt이 유효한 날짜인지 검증
+    const collectedAtDate = new Date(body.collectedAt);
+    if (isNaN(collectedAtDate.getTime())) {
+      res.status(400).json({ error: 'collectedAt이 유효한 날짜 형식이 아닙니다.' });
+      return;
+    }
+
     const db = getDb();
 
     // metrics 테이블에 저장
     await db.insert(schema.metrics).values({
       serverId: server.id,
-      collectedAt: new Date(body.collectedAt),
+      collectedAt: collectedAtDate,
       cpuUsage: body.cpu?.usage ?? null,
       memTotal: body.memory?.total ?? null,
       memUsed: body.memory?.used ?? null,
@@ -48,7 +55,7 @@ router.post('/metrics', async (req: Request, res: Response, next: NextFunction):
       await db.insert(schema.processes).values(
         body.processes.map((p) => ({
           serverId: server.id,
-          collectedAt: new Date(body.collectedAt!),
+          collectedAt: collectedAtDate,
           pid: p.pid,
           name: p.name,
           cpuUsage: p.cpu,
@@ -85,6 +92,12 @@ router.post('/logs', async (req: Request, res: Response, next: NextFunction): Pr
 
     if (!body.logs || !Array.isArray(body.logs) || body.logs.length === 0) {
       res.status(400).json({ error: 'logs 배열은 필수입니다.' });
+      return;
+    }
+
+    // 최대 1000건으로 제한
+    if (body.logs.length > 1000) {
+      res.status(400).json({ error: 'logs 배열은 최대 1000건까지 허용됩니다.' });
       return;
     }
 

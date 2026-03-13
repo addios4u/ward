@@ -27,6 +27,7 @@ interface WsOutboundMessage {
 /**
  * WebSocket 관리자
  * Redis Pub/Sub 메시지를 WebSocket 클라이언트에 실시간 브로드캐스트
+ * WebSocket 연결 시 세션 쿠키 검증 (인증 실패 시 1008 Policy Violation으로 거부)
  */
 export class WsManager {
   private wss: WebSocketServer;
@@ -43,7 +44,17 @@ export class WsManager {
 
   /** WebSocket 연결 이벤트 설정 */
   private setupWebSocket(): void {
-    this.wss.on('connection', (ws: WebSocket, _req: IncomingMessage) => {
+    this.wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+      // 세션 쿠키 검증
+      const cookie = req.headers?.['cookie'] ?? '';
+      const hasSession = this.hasValidSessionCookie(cookie);
+
+      if (!hasSession) {
+        console.warn('WebSocket: 인증되지 않은 연결 시도, 거부');
+        ws.close(1008, 'Policy Violation: 인증이 필요합니다.');
+        return;
+      }
+
       console.log('WebSocket 클라이언트 연결됨');
 
       this.clients.set(ws, { ws, channels: new Set() });
@@ -66,6 +77,14 @@ export class WsManager {
     this.wss.on('error', (err: Error) => {
       console.error('WebSocket 서버 오류:', err.message);
     });
+  }
+
+  /**
+   * 쿠키 문자열에서 세션 쿠키 존재 여부 확인
+   * connect.sid 쿠키가 있으면 인증된 것으로 간주
+   */
+  private hasValidSessionCookie(cookie: string): boolean {
+    return cookie.includes('connect.sid=');
   }
 
   /** 클라이언트 메시지 처리 */

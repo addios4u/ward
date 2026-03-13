@@ -1,7 +1,9 @@
 import { createHttpServer } from './app.js';
 import { config } from './config/index.js';
-import { getPool } from './db/index.js';
+import { getPool, closePool } from './db/index.js';
 import { CleanupService } from './services/CleanupService.js';
+import { HeartbeatMonitor } from './services/HeartbeatMonitor.js';
+import { AdminSeeder } from './services/AdminSeeder.js';
 import { closeRedis } from './lib/redis.js';
 
 async function main() {
@@ -10,6 +12,10 @@ async function main() {
   await pool.query('SELECT 1');
   console.log('DB 연결 성공');
 
+  // 초기 관리자 계정 시드
+  const seeder = new AdminSeeder();
+  await seeder.seed();
+
   const { httpServer, wsManager } = createHttpServer();
   const { port, host } = config.server;
 
@@ -17,10 +23,16 @@ async function main() {
   const cleanupService = new CleanupService();
   cleanupService.start();
 
+  // 서버 offline 감지 스케줄러 시작
+  const heartbeatMonitor = new HeartbeatMonitor();
+  heartbeatMonitor.start();
+
   // 프로세스 종료 시 정리
   const shutdown = async () => {
     cleanupService.stop();
+    heartbeatMonitor.stop();
     wsManager.close();
+    await closePool();
     await closeRedis();
     process.exit(0);
   };

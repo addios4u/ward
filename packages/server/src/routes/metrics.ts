@@ -1,18 +1,30 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { getDb, schema } from '../db/index.js';
 import { eq, desc } from 'drizzle-orm';
-import { jwtAuth } from '../middleware/jwtAuth.js';
+import { sessionAuth } from '../middleware/sessionAuth.js';
 
 const router = Router();
 
-// 모든 메트릭 라우트에 JWT 인증 적용
-router.use(jwtAuth);
+// UUID 형식 검증 정규식
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// 모든 메트릭 라우트에 세션 인증 적용
+router.use(sessionAuth);
 
 // GET /api/servers/:id/metrics — 메트릭 히스토리 조회
 router.get('/:id/metrics', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
-    const limit = parseInt(req.query['limit'] as string ?? '60', 10);
+
+    // UUID 형식 검증
+    if (!UUID_REGEX.test(id)) {
+      res.status(400).json({ error: '유효하지 않은 서버 ID 형식입니다.' });
+      return;
+    }
+
+    // limit 파라미터: NaN이면 기본값 60, 상한선 1000
+    const rawLimit = parseInt(req.query['limit'] as string ?? '60', 10);
+    const limit = isNaN(rawLimit) ? 60 : Math.min(rawLimit, 1000);
 
     const db = getDb();
 
@@ -45,6 +57,13 @@ router.get('/:id/metrics', async (req: Request, res: Response, next: NextFunctio
 router.get('/:id/status', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
+
+    // UUID 형식 검증
+    if (!UUID_REGEX.test(id)) {
+      res.status(400).json({ error: '유효하지 않은 서버 ID 형식입니다.' });
+      return;
+    }
+
     const db = getDb();
 
     const [server] = await db

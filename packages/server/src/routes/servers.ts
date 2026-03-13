@@ -3,8 +3,12 @@ import { getDb, schema } from '../db/index.js';
 import { eq, desc } from 'drizzle-orm';
 import { generateApiKey } from '../lib/apiKey.js';
 import { safeGet, REDIS_KEYS } from '../lib/redis.js';
+import { sessionAuth } from '../middleware/sessionAuth.js';
 
 const router = Router();
+
+// 모든 서버 관리 API에 세션 인증 적용
+router.use(sessionAuth);
 
 // GET /api/servers — 서버 목록 조회 (최신 메트릭 Redis 캐시 활용)
 router.get('/', async (_req: Request, res: Response, next: NextFunction): Promise<void> => {

@@ -1,20 +1,36 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { getDb, schema } from '../db/index.js';
 import { eq, desc, and } from 'drizzle-orm';
-import { jwtAuth } from '../middleware/jwtAuth.js';
+import { sessionAuth } from '../middleware/sessionAuth.js';
 
 const router = Router();
 
-// 모든 로그 라우트에 JWT 인증 적용
-router.use(jwtAuth);
+// UUID 형식 검증 정규식
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// 모든 로그 라우트에 세션 인증 적용
+router.use(sessionAuth);
 
 // GET /api/servers/:id/logs — 로그 조회 (레벨 필터, 페이지네이션)
 router.get('/:id/logs', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
+
+    // UUID 형식 검증
+    if (!UUID_REGEX.test(id)) {
+      res.status(400).json({ error: '유효하지 않은 서버 ID 형식입니다.' });
+      return;
+    }
+
     const level = req.query['level'] as string | undefined;
-    const limit = parseInt(req.query['limit'] as string ?? '100', 10);
-    const offset = parseInt(req.query['offset'] as string ?? '0', 10);
+
+    // limit 파라미터: NaN이면 기본값 100, 상한선 1000
+    const rawLimit = parseInt(req.query['limit'] as string ?? '100', 10);
+    const limit = isNaN(rawLimit) ? 100 : Math.min(rawLimit, 1000);
+
+    // offset 파라미터: NaN이면 0, 음수면 0
+    const rawOffset = parseInt(req.query['offset'] as string ?? '0', 10);
+    const offset = isNaN(rawOffset) || rawOffset < 0 ? 0 : rawOffset;
 
     const db = getDb();
 

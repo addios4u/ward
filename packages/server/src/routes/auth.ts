@@ -2,12 +2,11 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { getDb, schema } from '../db/index.js';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import { config } from '../config/index.js';
+import { sessionAuth } from '../middleware/sessionAuth.js';
 
 const router = Router();
 
-// POST /api/auth/login — 이메일/비밀번호 검증 + JWT 발급
+// POST /api/auth/login — 이메일/비밀번호 검증 + 세션 발급
 router.post('/login', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { email, password } = req.body as { email?: string; password?: string };
@@ -40,13 +39,53 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction): P
       return;
     }
 
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      config.jwt.secret,
-      { expiresIn: config.jwt.accessExpiresIn }
-    );
+    // 세션에 userId 저장
+    req.session.userId = user.id;
+    await new Promise<void>((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
 
-    res.json({ token, user: { id: user.id, email: user.email } });
+    res.json({ user: { id: user.id, email: user.email } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/logout — 세션 삭제
+router.post('/logout', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    await new Promise<void>((resolve, reject) => {
+      req.session.destroy((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    res.clearCookie('connect.sid');
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/auth/me — 현재 세션 사용자 정보 반환
+router.get('/me', sessionAuth, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const db = getDb();
+    const [user] = await db
+      .select({ id: schema.users.id, email: schema.users.email })
+      .from(schema.users)
+      .where(eq(schema.users.id, req.session.userId!))
+      .limit(1);
+
+    if (!user) {
+      res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+      return;
+    }
+
+    res.json({ user });
   } catch (err) {
     next(err);
   }

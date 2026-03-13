@@ -18,10 +18,8 @@ export const config = {
     user: process.env.POSTGRES_USER ?? 'ward',
     password: process.env.POSTGRES_PASSWORD ?? '',
   },
-  jwt: {
-    secret: process.env.JWT_SECRET ?? 'dev-secret-change-in-production',
-    accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? '1h',
-    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
+  session: {
+    secret: process.env.SESSION_SECRET ?? '',
   },
   retention: {
     metricsDays: parseInt(process.env.METRICS_RETENTION_DAYS ?? '30', 10),
