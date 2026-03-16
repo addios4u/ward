@@ -176,7 +176,7 @@ export function SettingsPage() {
             <div className="space-y-3 text-sm text-gray-600">
               <div className="flex justify-between">
                 <span className="text-gray-500">Ward 버전</span>
-                <span className="font-medium">0.1.0</span>
+                <span className="font-medium">{__APP_VERSION__}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">서버 URL</span>
