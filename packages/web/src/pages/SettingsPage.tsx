@@ -1,19 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { serversApi, usersApi } from '@/lib/api';
+import { usersApi } from '@/lib/api';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
-import type { Server, AdminUser } from '@/types';
+import type { AdminUser } from '@/types';
 
 // 설정 페이지
 export function SettingsPage() {
-  // 서버 관리 상태
-  const [servers, setServers] = useState<Server[]>([]);
-  const [serversLoading, setServersLoading] = useState(true);
-  const [serversError, setServersError] = useState<string | null>(null);
-
   // 계정 관리 상태
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -32,20 +26,6 @@ export function SettingsPage() {
   const [changePwLoading, setChangePwLoading] = useState(false);
   const [changePwError, setChangePwError] = useState<string | null>(null);
 
-  const fetchServers = useCallback(() => {
-    serversApi
-      .list()
-      .then((res) => {
-        setServers(res.servers);
-        setServersError(null);
-        setServersLoading(false);
-      })
-      .catch((err: Error) => {
-        setServersError(err.message);
-        setServersLoading(false);
-      });
-  }, []);
-
   const fetchUsers = useCallback(() => {
     usersApi
       .list()
@@ -61,25 +41,8 @@ export function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    fetchServers();
     fetchUsers();
-  }, [fetchServers, fetchUsers]);
-
-  // 서버 강제 삭제
-  const handleDeleteServer = async (id: string, name: string) => {
-    if (
-      !confirm(
-        `이 서버를 삭제하면 에이전트가 재시작될 때 자동으로 재등록됩니다. 계속하시겠습니까?\n\n대상 서버: "${name}"`
-      )
-    )
-      return;
-    try {
-      await serversApi.delete(id);
-      fetchServers();
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : '서버 삭제 실패');
-    }
-  };
+  }, [fetchUsers]);
 
   // 계정 추가
   const handleAddUser = async (e: React.FormEvent) => {
@@ -133,76 +96,7 @@ export function SettingsPage() {
 
       <div className="space-y-8 max-w-4xl">
 
-        {/* 섹션 1: 서버 관리 */}
-        <Card>
-          <CardHeader>
-            <h2 className="text-base font-semibold text-gray-900">서버 관리</h2>
-          </CardHeader>
-          <CardBody className="p-0">
-            {serversLoading ? (
-              <div className="flex items-center justify-center h-24 gap-2 text-gray-400 text-sm">
-                <Spinner size="sm" />
-                <span>불러오는 중...</span>
-              </div>
-            ) : serversError ? (
-              <div className="p-4">
-                <ErrorMessage message={serversError} onRetry={fetchServers} />
-              </div>
-            ) : servers.length === 0 ? (
-              <div className="text-center py-8 text-gray-400 text-sm">
-                등록된 서버가 없습니다.
-              </div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">서버명</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">호스트명</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">IP</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">국가/도시</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">등록일</th>
-                    <th className="px-4 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {servers.map((server) => {
-                    const location = [server.city, server.country].filter(Boolean).join(', ');
-                    return (
-                      <tr key={server.id}>
-                        <td className="px-4 py-3 font-medium text-gray-900">{server.name}</td>
-                        <td className="px-4 py-3 text-gray-600 text-xs font-mono">{server.hostname}</td>
-                        <td className="px-4 py-3 text-gray-600 text-xs font-mono">
-                          {server.publicIp ?? '-'}
-                        </td>
-                        <td className="px-4 py-3 text-gray-500 text-xs">
-                          {location || '-'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge status={server.status} />
-                        </td>
-                        <td className="px-4 py-3 text-gray-400 text-xs">
-                          {new Date(server.createdAt).toLocaleDateString('ko-KR')}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() => handleDeleteServer(server.id, server.name)}
-                          >
-                            강제 삭제
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </CardBody>
-        </Card>
-
-        {/* 섹션 2: 계정 관리 */}
+        {/* 섹션 1: 계정 관리 */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -273,7 +167,7 @@ export function SettingsPage() {
           </CardBody>
         </Card>
 
-        {/* 섹션 3: 시스템 정보 */}
+        {/* 섹션 2: 시스템 정보 */}
         <Card>
           <CardHeader>
             <h2 className="text-base font-semibold text-gray-900">시스템 정보</h2>
