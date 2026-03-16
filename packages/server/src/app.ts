@@ -105,10 +105,10 @@ export function createApp(): express.Application {
     }),
   });
 
-  // 에이전트 엔드포인트: 분당 500회 (더 높은 한도)
+  // 에이전트 엔드포인트: 분당 5000회 (로그 배치 전송 고려)
   const agentLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 500,
+    max: 5000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: '에이전트 요청 횟수 초과.' },
