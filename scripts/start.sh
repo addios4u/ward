@@ -18,6 +18,13 @@ if [ -f "$PID_FILE" ]; then
   fi
 fi
 
+echo "Building Ward..."
+cd "$ROOT_DIR"
+pnpm --filter @ward/web build
+pnpm --filter @ward/server build
+pnpm --filter @ward/agent build
+echo "Build complete."
+
 echo "Starting Ward..."
 
 # 백그라운드로 에이전트 시작 (에이전트가 Ward 서버 2개를 직접 시작)
