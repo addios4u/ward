@@ -2,7 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 import { spawn, ChildProcess } from 'child_process';
+import pidusage from 'pidusage';
 import type { ServiceConfig } from '../config/ServiceConfig.js';
+
+// 메모리 체크 주기 (30초)
+const MEM_CHECK_INTERVAL_MS = 30_000;
 
 // 감시 항목 내부 상태
 interface WatchEntry {
@@ -12,6 +16,7 @@ interface WatchEntry {
   // 프로세스 방식 (exec/journal/docker/pipe)
   process?: ChildProcess;
   restartTimer?: ReturnType<typeof setTimeout>;
+  memCheckTimer?: ReturnType<typeof setInterval>;  // 메모리 초과 감시 타이머
   stopped?: boolean;
   // 재시작을 위한 원본 설정
   config?: ServiceConfig;
@@ -77,6 +82,11 @@ export class ServiceWatcher extends EventEmitter {
     // 재시작 타이머 취소
     if (entry.restartTimer) {
       clearTimeout(entry.restartTimer);
+    }
+
+    // 메모리 체크 타이머 취소
+    if (entry.memCheckTimer) {
+      clearInterval(entry.memCheckTimer);
     }
 
     delete this.lineBuffers[name];
@@ -178,6 +188,11 @@ export class ServiceWatcher extends EventEmitter {
 
     child.on('close', () => {
       if (entry.stopped) return;
+      // 메모리 체크 타이머 정리 (프로세스 종료 시)
+      if (entry.memCheckTimer) {
+        clearInterval(entry.memCheckTimer);
+        entry.memCheckTimer = undefined;
+      }
       this.emit('status', entry.name, 'stopped', undefined, entry.restartCount, undefined);
       entry.restartCount = (entry.restartCount ?? 0) + 1;
       entry.startedAt = new Date();
@@ -185,6 +200,23 @@ export class ServiceWatcher extends EventEmitter {
         if (!entry.stopped) this._spawnExec(entry, command);
       }, entry.restartDelay ?? 3000);
     });
+
+    // 메모리 임계값이 설정된 경우 주기적으로 체크
+    const maxMemBytes = (entry.config as Extract<ServiceConfig, { method: 'exec' }>)?.maxMemBytes;
+    if (maxMemBytes && maxMemBytes > 0) {
+      entry.memCheckTimer = setInterval(async () => {
+        if (entry.stopped || !child.pid) return;
+        try {
+          const stats = await pidusage(child.pid);
+          if (stats.memory > maxMemBytes) {
+            const mb = (stats.memory / 1024 / 1024).toFixed(1);
+            const limitMb = (maxMemBytes / 1024 / 1024).toFixed(0);
+            this._emitLines(entry.name, `[ward] 메모리 초과로 재시작: ${mb}MB > ${limitMb}MB 임계값`);
+            child.kill('SIGTERM');
+          }
+        } catch { /* PID 접근 불가 시 무시 */ }
+      }, MEM_CHECK_INTERVAL_MS);
+    }
   }
 
   // ── 내부 구현: journal 방식 ────────────────────────────

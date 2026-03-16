@@ -13,8 +13,9 @@ export interface FileServiceConfig {
 export interface ExecServiceConfig {
   name: string;
   method: 'exec';
-  command: string;       // 실행할 명령어 (예: "node app.js")
-  restartDelay?: number; // 종료 후 재시작 딜레이(ms), 기본값: 3000
+  command: string;        // 실행할 명령어 (예: "node app.js")
+  restartDelay?: number;  // 종료 후 재시작 딜레이(ms), 기본값: 3000
+  maxMemBytes?: number;   // 메모리 초과 시 자동 재시작 임계값 (bytes), 미설정 시 비활성
 }
 
 // journal 방식: journalctl -u <unit> -f 로 systemd 서비스 로그 수집
