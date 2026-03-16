@@ -39,9 +39,9 @@ ward/
 [에이전트] ──메트릭/로그──▶ [서버] ◀──WebSocket──▶ [웹 대시보드]
  (각 서버)                  (중앙)                  (브라우저)
                              │
-                     ┌───────┼───────┐
-                     ▼       ▼       ▼
-                 PostgreSQL Redis  PgBouncer
+                     ┌───────┴───────┐
+                     ▼               ▼
+                 PostgreSQL        Redis
 ```
 
 - **Server** - 에이전트로부터 메트릭과 로그를 수신하여 PostgreSQL에 저장하고, WebSocket으로 대시보드에 실시간 전달
@@ -115,7 +115,7 @@ Ward 에이전트는 5가지 방식으로 로그를 수집합니다.
 | Server | Node.js v22, Express, TypeScript, PostgreSQL, Redis |
 | Agent | Node.js v22, TypeScript, Commander.js |
 | Web | React 18, Vite, TypeScript, Tailwind CSS, Recharts |
-| 인프라 | Docker, Docker Compose, Nginx, PgBouncer |
+| 인프라 | Docker, Docker Compose, Nginx |
 
 ## 샘플
 
