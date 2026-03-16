@@ -114,6 +114,16 @@ async function main() {
   const queue = new Queue({ maxSize: 1000, maxRetries: 3 });
   const httpClient = new HttpClient({ serverUrl: SERVER_URL, serverId });
 
+  // ward-4000, ward-4001 서비스를 DB에 등록 (서비스 탭에 표시되도록)
+  await httpClient.syncServices(
+    WARD_SERVICES.map(svc => ({
+      name: svc.name,
+      type: 'exec',
+      config: { name: svc.name, method: 'exec', command: svc.command },
+      status: 'running' as const,
+    }))
+  ).catch((err: Error) => console.warn('[에이전트] 서비스 동기화 실패:', err.message));
+
   // 로그 포워더: ServiceWatcher 이벤트 → Ward 서버로 전송
   const logForwarder = new LogForwarder({ client: httpClient });
   serviceWatcher.on('line', (source: string, line: string) => {
