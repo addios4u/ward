@@ -31,7 +31,6 @@ export function ServerDetailPage() {
   const [logsError, setLogsError] = useState<string | null>(null);
   const [logLevel, setLogLevel] = useState<LogLevel | ''>('');
   const [logSource] = useState<string>(initialSource);
-  const [autoRefresh, setAutoRefresh] = useState(true);
 
   const loadStatus = useCallback(() => {
     serversApi
@@ -67,12 +66,10 @@ export function ServerDetailPage() {
     [serverId]
   );
 
+  // 초기 로드만 수행 — 이후 실시간 업데이트는 WebSocket이 처리
   useEffect(() => {
     loadLogs(logLevel, logSource);
-    if (!autoRefresh) return;
-    const timer = setInterval(() => loadLogs(logLevel, logSource), 10_000);
-    return () => clearInterval(timer);
-  }, [loadLogs, logLevel, logSource, autoRefresh]);
+  }, [loadLogs, logLevel, logSource]);
 
   const logLevelRef = useRef(logLevel);
   const logSourceRef = useRef(logSource);
@@ -185,17 +182,6 @@ export function ServerDetailPage() {
           <div className="flex items-center gap-2">
             {logsLoading && <Spinner size="sm" />}
             {logsError && <span className="text-xs text-red-500">{logsError}</span>}
-            <button
-              onClick={() => setAutoRefresh(v => !v)}
-              className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border transition-colors ${
-                autoRefresh
-                  ? 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100'
-                  : 'bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100'
-              }`}
-            >
-              <span className={`inline-block w-1.5 h-1.5 rounded-full ${autoRefresh ? 'bg-green-500' : 'bg-gray-300'}`} />
-              자동갱신
-            </button>
             <button
               onClick={() => loadLogs(logLevel, logSource)}
               className="text-xs text-gray-400 hover:text-gray-600"

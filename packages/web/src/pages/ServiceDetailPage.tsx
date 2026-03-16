@@ -30,7 +30,6 @@ export function ServiceDetailPage() {
   const [levelFilter, setLevelFilter] = useState<LogLevel | ''>();
   const [restarting, setRestarting] = useState(false);
   const [restartError, setRestartError] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
 
   const fetchService = useCallback(() => {
     if (!serverId) return;
@@ -88,10 +87,9 @@ export function ServiceDetailPage() {
 
   useEffect(() => {
     fetchLogs();
-    if (!autoRefresh) return;
     const timer = setInterval(fetchLogs, 10_000);
     return () => clearInterval(timer);
-  }, [fetchLogs, autoRefresh]);
+  }, [fetchLogs]);
 
   if (loading) {
     return (
@@ -209,17 +207,6 @@ export function ServiceDetailPage() {
           <h2 className="text-sm font-semibold text-gray-700">로그</h2>
           <div className="flex items-center gap-2">
             {logsLoading && <Spinner size="sm" />}
-            <button
-              onClick={() => setAutoRefresh(v => !v)}
-              className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border transition-colors ${
-                autoRefresh
-                  ? 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100'
-                  : 'bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100'
-              }`}
-            >
-              <span className={`inline-block w-1.5 h-1.5 rounded-full ${autoRefresh ? 'bg-green-500' : 'bg-gray-300'}`} />
-              자동갱신
-            </button>
             <button
               onClick={fetchLogs}
               className="text-xs text-gray-400 hover:text-gray-600"
