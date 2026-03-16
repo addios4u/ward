@@ -59,6 +59,14 @@ async function main() {
   const httpClient = new HttpClient({ serverUrl: SERVER_URL, serverId });
   const queue = new Queue({ maxSize: 1000, maxRetries: 3 });
 
+  // ward-server 서비스를 DB에 등록 (서비스 탭에 표시되도록)
+  await httpClient.syncServices([{
+    name: 'ward-server',
+    type: 'exec',
+    config: { name: 'ward-server', method: 'exec', command: `tsx watch ${serverEntry}` },
+    status: 'running',
+  }]).catch((err: Error) => console.warn('[dev-agent] 서비스 동기화 실패:', err.message));
+
   // 로그 포워더: 서버 stdout/stderr → 대시보드
   const logForwarder = new LogForwarder({ client: httpClient });
   serviceWatcher.on('line', (source: string, line: string) => {
