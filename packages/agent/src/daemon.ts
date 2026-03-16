@@ -1,5 +1,6 @@
 // 에이전트 데몬 프로세스 - 백그라운드에서 실행
 import * as os from 'os';
+import pidusage from 'pidusage';
 import { loadConfig, loadState } from './config/AgentConfig.js';
 import { CpuCollector } from './metrics/CpuCollector.js';
 import { MemoryCollector } from './metrics/MemoryCollector.js';
@@ -87,8 +88,22 @@ async function syncServicesToServer(): Promise<void> {
   const config = loadConfig();
   const services = config?.services ?? [];
 
-  const servicePayloads = services.map(svc => {
+  const servicePayloads = await Promise.all(services.map(async (svc) => {
     const statusInfo = serviceWatcher?.getServiceStatus(svc.name) ?? { status: 'unknown' as const, restartCount: 0 };
+
+    let cpuUsage: number | undefined;
+    let memUsage: number | undefined;
+
+    if (statusInfo.pid && svc.method === 'exec') {
+      try {
+        const stats = await pidusage(statusInfo.pid);
+        cpuUsage = stats.cpu;
+        memUsage = stats.memory;
+      } catch {
+        // PID가 없거나 접근 불가
+      }
+    }
+
     return {
       name: svc.name,
       type: svc.method,
@@ -97,12 +112,27 @@ async function syncServicesToServer(): Promise<void> {
       pid: statusInfo.pid,
       restartCount: statusInfo.restartCount,
       startedAt: statusInfo.startedAt?.toISOString(),
+      cpuUsage,
+      memUsage,
     };
-  });
+  }));
 
   const result = await httpClient.syncServices(servicePayloads);
   if (!result.success) {
     console.error(`서비스 동기화 실패: ${result.error}`);
+  }
+}
+
+// heartbeat 응답의 commands 처리
+async function handleHeartbeatCommands(result: SendResult & { commands?: Array<{ id: string; serviceName: string; action: string }> }): Promise<void> {
+  if (!result.commands || result.commands.length === 0) return;
+
+  for (const cmd of result.commands) {
+    console.log(`명령 수신: ${cmd.serviceName} → ${cmd.action}`);
+    if (cmd.action === 'restart') {
+      serviceWatcher?.restart(cmd.serviceName);
+      console.log(`서비스 재시작: ${cmd.serviceName}`);
+    }
   }
 }
 
@@ -111,22 +141,36 @@ async function sendHeartbeat(): Promise<SendResult> {
   try {
     const ipInfo = await ipCollector.collect();
     const config = loadConfig();
-    const services = (config?.services ?? []).map(svc => {
+    const serviceStatuses = await Promise.all((config?.services ?? []).map(async (svc) => {
       const statusInfo = serviceWatcher?.getServiceStatus(svc.name) ?? { status: 'unknown' as const, restartCount: 0 };
+
+      let cpuUsage: number | undefined;
+      let memUsage: number | undefined;
+
+      if (statusInfo.pid && svc.method === 'exec') {
+        try {
+          const stats = await pidusage(statusInfo.pid);
+          cpuUsage = stats.cpu;
+          memUsage = stats.memory;
+        } catch { /* 무시 */ }
+      }
+
       return {
         name: svc.name,
         status: statusInfo.status,
         pid: statusInfo.pid,
         restartCount: statusInfo.restartCount,
         startedAt: statusInfo.startedAt?.toISOString(),
+        cpuUsage,
+        memUsage,
       };
-    });
+    }));
 
     const payload = {
       sentAt: new Date().toISOString(),
       hostname: currentHostname,
       ipInfo,
-      services: services.length > 0 ? services : undefined,
+      services: serviceStatuses.length > 0 ? serviceStatuses : undefined,
     };
 
     const result = await httpClient.sendHeartbeat(payload);
@@ -134,6 +178,8 @@ async function sendHeartbeat(): Promise<SendResult> {
 
     if (!result.success) {
       console.error(`Heartbeat 전송 실패: ${result.error}`);
+    } else {
+      await handleHeartbeatCommands(result);
     }
     return result;
   } catch (error) {

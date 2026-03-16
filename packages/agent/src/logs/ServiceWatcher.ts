@@ -232,6 +232,17 @@ export class ServiceWatcher extends EventEmitter {
     child.stderr?.on('data', (chunk: Buffer) => this._emitLines(config.name, chunk.toString('utf8')));
   }
 
+  // 서비스 재시작 (설정을 유지하며 중단 후 재시작)
+  restart(name: string): void {
+    const entry = this.entries.get(name);
+    if (!entry || !entry.config) return;
+    const config = entry.config;
+    this.unwatch(name);
+    setTimeout(() => {
+      this.watch(config);
+    }, 500);
+  }
+
   // 서비스 상태 조회
   getServiceStatus(name: string): { status: 'running' | 'stopped' | 'unknown'; pid?: number; restartCount: number; startedAt?: Date } {
     const entry = this.entries.get(name);

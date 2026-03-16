@@ -2,6 +2,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import pidusage from 'pidusage';
 import { saveState, saveConfig, getWardDir } from './config/AgentConfig.js';
 import { HttpClient } from './transport/HttpClient.js';
 import { ReconnectManager } from './transport/ReconnectManager.js';
@@ -169,12 +170,43 @@ async function main() {
   async function sendHeartbeat() {
     try {
       const ipInfo = await ipCollector.collect();
+      const serviceStatuses = await Promise.all(WARD_SERVICES.map(async (svc) => {
+        const statusInfo = serviceWatcher.getServiceStatus(svc.name);
+        let cpuUsage: number | undefined;
+        let memUsage: number | undefined;
+        if (statusInfo.pid) {
+          try {
+            const stats = await pidusage(statusInfo.pid);
+            cpuUsage = stats.cpu;
+            memUsage = stats.memory;
+          } catch { /* 무시 */ }
+        }
+        return {
+          name: svc.name,
+          status: statusInfo.status,
+          pid: statusInfo.pid,
+          restartCount: statusInfo.restartCount,
+          startedAt: statusInfo.startedAt?.toISOString(),
+          cpuUsage,
+          memUsage,
+        };
+      }));
       const result = await httpClient.sendHeartbeat({
         sentAt: new Date().toISOString(),
         hostname: HOSTNAME,
         ipInfo,
+        services: serviceStatuses,
       });
       reconnectManager.reportResult(result);
+      if (result.success && result.commands && result.commands.length > 0) {
+        for (const cmd of result.commands) {
+          console.log(`[에이전트] 명령 수신: ${cmd.serviceName} → ${cmd.action}`);
+          if (cmd.action === 'restart') {
+            serviceWatcher.restart(cmd.serviceName);
+            console.log(`[에이전트] 서비스 재시작: ${cmd.serviceName}`);
+          }
+        }
+      }
     } catch (err) {
       console.error('[에이전트] Heartbeat 오류:', err);
     }

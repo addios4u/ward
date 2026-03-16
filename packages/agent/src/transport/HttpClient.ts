@@ -149,9 +149,41 @@ export class HttpClient {
     return this.post('/api/agent/metrics', metrics);
   }
 
-  // Heartbeat 전송
-  async sendHeartbeat(data: unknown): Promise<SendResult> {
-    return this.post('/api/agent/heartbeat', data);
+  // Heartbeat 전송 (응답 body의 commands 포함 반환)
+  async sendHeartbeat(data: unknown): Promise<SendResult & { commands?: Array<{ id: string; serviceName: string; action: string }> }> {
+    const url = `${this.serverUrl}/api/agent/heartbeat`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-ward-server-id': this.serverId,
+        },
+        body: JSON.stringify(data),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const body = await response.json() as { ok: boolean; serverId: string; commands?: Array<{ id: string; serviceName: string; action: string }> };
+        return { success: true, statusCode: response.status, commands: body.commands };
+      } else {
+        return {
+          success: false,
+          statusCode: response.status,
+          error: `HTTP 오류: ${response.status} ${response.statusText}`,
+          errorType: SendErrorType.HTTP_ERROR,
+        };
+      }
+    } catch (error) {
+      clearTimeout(timeoutId);
+      const classified = this.classifyError(error);
+      return { success: false, ...classified };
+    }
   }
 
   // 서비스 목록 동기화
@@ -163,6 +195,8 @@ export class HttpClient {
     pid?: number;
     restartCount?: number;
     startedAt?: string;
+    cpuUsage?: number;
+    memUsage?: number;
   }>): Promise<SendResult> {
     return this.post('/api/agent/services/sync', { services });
   }

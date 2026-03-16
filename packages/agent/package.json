@@ -21,11 +21,13 @@
   "dependencies": {
     "commander": "^12.1.0",
     "js-yaml": "^4.1.1",
+    "pidusage": "^4.0.1",
     "systeminformation": "^5.31.4"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.19.15",
+    "@types/pidusage": "^2.0.5",
     "@vitest/coverage-v8": "^2.1.9",
     "tsx": "^4.21.0",
     "vitest": "^2.1.9"

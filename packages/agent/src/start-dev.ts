@@ -1,6 +1,7 @@
 // 개발 모드 에이전트: Ward dev 서버를 직접 시작·감시하고 메트릭/로그를 대시보드에 전송
 import * as os from 'os';
 import * as path from 'path';
+import pidusage from 'pidusage';
 import { saveState } from './config/AgentConfig.js';
 import { HttpClient } from './transport/HttpClient.js';
 import { ReconnectManager } from './transport/ReconnectManager.js';
@@ -111,12 +112,40 @@ async function main() {
   async function sendHeartbeat() {
     try {
       const ipInfo = await ipCollector.collect();
+      const statusInfo = serviceWatcher.getServiceStatus('ward-server');
+      let cpuUsage: number | undefined;
+      let memUsage: number | undefined;
+      if (statusInfo.pid) {
+        try {
+          const stats = await pidusage(statusInfo.pid);
+          cpuUsage = stats.cpu;
+          memUsage = stats.memory;
+        } catch { /* 무시 */ }
+      }
       const result = await httpClient.sendHeartbeat({
         sentAt: new Date().toISOString(),
         hostname: HOSTNAME,
         ipInfo,
+        services: [{
+          name: 'ward-server',
+          status: statusInfo.status,
+          pid: statusInfo.pid,
+          restartCount: statusInfo.restartCount,
+          startedAt: statusInfo.startedAt?.toISOString(),
+          cpuUsage,
+          memUsage,
+        }],
       });
       reconnectManager.reportResult(result);
+      if (result.success && result.commands && result.commands.length > 0) {
+        for (const cmd of result.commands) {
+          console.log(`[dev-agent] 명령 수신: ${cmd.serviceName} → ${cmd.action}`);
+          if (cmd.action === 'restart') {
+            serviceWatcher.restart(cmd.serviceName);
+            console.log(`[dev-agent] 서비스 재시작: ${cmd.serviceName}`);
+          }
+        }
+      }
     } catch (err) {
       console.error('[dev-agent] Heartbeat 오류:', err);
     }
