@@ -26,6 +26,9 @@ export const servers = pgTable('servers', {
   country: varchar('country', { length: 100 }),            // nullable
   city: varchar('city', { length: 100 }),                  // nullable
   isp: varchar('isp', { length: 255 }),                    // nullable
+  osName: varchar('os_name', { length: 100 }),             // e.g. 'Ubuntu', 'CentOS'
+  osVersion: varchar('os_version', { length: 100 }),       // e.g. '22.04'
+  arch: varchar('arch', { length: 50 }),                   // e.g. 'x64', 'arm64'
   status: serverStatusEnum('status').notNull().default('unknown'),
   lastSeenAt: timestamp('last_seen_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -68,6 +71,7 @@ export const processes = pgTable(
     name: varchar('name', { length: 255 }).notNull(),
     cpuUsage: doublePrecision('cpu_usage'),
     memUsage: bigint('mem_usage', { mode: 'number' }),
+    status: varchar('status', { length: 50 }),             // 'running', 'sleeping', etc.
   },
   (t) => [primaryKey({ columns: [t.id, t.collectedAt] })],
 );
