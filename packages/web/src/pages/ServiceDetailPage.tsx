@@ -4,6 +4,8 @@ import { servicesApi } from '@/lib/api';
 import { Spinner } from '@/components/ui/Spinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { LogViewer } from '@/components/dashboard/LogViewer';
+import { ServiceMetricsChart } from '@/components/dashboard/ServiceMetricsChart';
+import type { ServiceMetricsPoint } from '@/components/dashboard/ServiceMetricsChart';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { WardService, Log, LogLevel, WsMessage } from '@/types';
 
@@ -23,6 +25,7 @@ export function ServiceDetailPage() {
   const decodedName = serviceName ? decodeURIComponent(serviceName) : '';
 
   const [service, setService] = useState<WardService | null>(null);
+  const [metricsHistory, setMetricsHistory] = useState<ServiceMetricsPoint[]>([]);
   const [logs, setLogs] = useState<Log[]>([]);
   const [loading, setLoading] = useState(true);
   const [logsLoading, setLogsLoading] = useState(false);
@@ -41,6 +44,14 @@ export function ServiceDetailPage() {
           setError('서비스를 찾을 수 없습니다.');
         } else {
           setService(found);
+          if (found.status === 'running') {
+            const point: ServiceMetricsPoint = {
+              time: new Date().toLocaleTimeString('ko-KR'),
+              cpu: found.cpuUsage,
+              mem: found.memUsage !== null ? Math.round(found.memUsage / 1024 / 1024 * 10) / 10 : null,
+            };
+            setMetricsHistory((prev) => [...prev.slice(-29), point]);
+          }
         }
         setLoading(false);
       })
@@ -83,6 +94,8 @@ export function ServiceDetailPage() {
 
   useEffect(() => {
     fetchService();
+    const timer = setInterval(fetchService, 15_000);
+    return () => clearInterval(timer);
   }, [fetchService]);
 
   // 초기 로드 + 60초 fallback 폴링 (WS가 주 업데이트 채널)
@@ -196,20 +209,31 @@ export function ServiceDetailPage() {
             </div>
           )}
 
-          {/* 명령어 / 로그 파일 */}
-          {Boolean(service.config['command']) && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-xs text-gray-400 mb-1">명령어</p>
-              <p className="font-mono text-sm bg-gray-50 px-3 py-2 rounded text-gray-700">{String(service.config['command'])}</p>
-            </div>
-          )}
-          {Boolean(service.config['paths']) && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-xs text-gray-400 mb-1">로그 파일</p>
-              <p className="font-mono text-sm bg-gray-50 px-3 py-2 rounded text-gray-700">{(service.config['paths'] as string[]).join(', ')}</p>
-            </div>
-          )}
         </div>
+
+        {/* 성능 그래프 카드 */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">성능 그래프</h2>
+          <ServiceMetricsChart data={metricsHistory} />
+        </div>
+
+        {/* 명령어 / 로그 파일 카드 */}
+        {(Boolean(service.config['command']) || Boolean(service.config['paths'])) && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 space-y-4">
+            {Boolean(service.config['command']) && (
+              <div>
+                <p className="text-xs text-gray-400 mb-1">명령어</p>
+                <p className="font-mono text-sm bg-gray-50 px-3 py-2 rounded text-gray-700">{String(service.config['command'])}</p>
+              </div>
+            )}
+            {Boolean(service.config['paths']) && (
+              <div>
+                <p className="text-xs text-gray-400 mb-1">로그 파일</p>
+                <p className="font-mono text-sm bg-gray-50 px-3 py-2 rounded text-gray-700">{(service.config['paths'] as string[]).join(', ')}</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 오른쪽: 로그 (항상 표시) */}
