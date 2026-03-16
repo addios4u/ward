@@ -8,6 +8,31 @@ interface ServerCardProps {
   server: Server;
 }
 
+// 바이트를 GB로 변환
+function toGB(bytes: number): string {
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
+}
+
+// 메트릭 프로그레스바 컴포넌트 (80% 이상이면 빨간색 경고)
+function MetricBar({ value, label }: { value: number; label: string }) {
+  const isWarning = value >= 80;
+  const barColor = isWarning ? 'bg-red-500' : 'bg-blue-400';
+  return (
+    <div>
+      <div className="flex justify-between text-xs text-gray-500 mb-0.5">
+        <span>{label}</span>
+        <span className={isWarning ? 'text-red-500 font-medium' : ''}>{value.toFixed(1)}%</span>
+      </div>
+      <div className="w-full bg-gray-100 rounded-full h-1.5">
+        <div
+          className={`h-1.5 rounded-full ${barColor}`}
+          style={{ width: `${Math.min(value, 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // 서버 카드 컴포넌트
 export function ServerCard({ server }: ServerCardProps) {
   const lastSeen = server.lastSeenAt
@@ -16,6 +41,24 @@ export function ServerCard({ server }: ServerCardProps) {
 
   // 국가/도시 문자열 조합
   const location = [server.city, server.country].filter(Boolean).join(', ');
+
+  // OS 정보 문자열 조합
+  const osInfo = [server.osName, server.osVersion].filter(Boolean).join(' ');
+
+  // 메모리 사용률 계산
+  const memPercent =
+    server.latestMetrics?.memTotal && server.latestMetrics?.memUsed
+      ? (server.latestMetrics.memUsed / server.latestMetrics.memTotal) * 100
+      : null;
+
+  // 디스크 사용률 계산 (첫 번째 마운트 포인트 기준)
+  const diskEntry = server.latestMetrics?.diskUsage
+    ? Object.values(server.latestMetrics.diskUsage)[0]
+    : null;
+  const diskPercent =
+    diskEntry && diskEntry.total > 0
+      ? (diskEntry.used / diskEntry.total) * 100
+      : null;
 
   return (
     <Link to={`/servers/${server.id}`}>
@@ -26,6 +69,10 @@ export function ServerCard({ server }: ServerCardProps) {
               <h3 className="text-lg font-semibold text-gray-900 truncate">{server.name}</h3>
               {/* 호스트명 표시 */}
               <p className="text-xs text-gray-400 mt-0.5 truncate">{server.hostname}</p>
+              {/* OS 정보 표시 */}
+              {osInfo && (
+                <p className="text-xs text-gray-400 mt-0.5">{osInfo}</p>
+              )}
             </div>
             <Badge status={server.status} />
           </div>
@@ -42,6 +89,34 @@ export function ServerCard({ server }: ServerCardProps) {
               <p className="text-xs text-gray-500">{location}</p>
             )}
           </div>
+
+          {/* 최신 메트릭 표시 */}
+          {server.latestMetrics && (
+            <div className="mt-3 space-y-2">
+              {server.latestMetrics.cpuUsage !== null && (
+                <MetricBar value={server.latestMetrics.cpuUsage} label="CPU" />
+              )}
+              {memPercent !== null && (
+                <div>
+                  <div className="flex justify-between text-xs text-gray-500 mb-0.5">
+                    <span>메모리</span>
+                    <span className={memPercent >= 80 ? 'text-red-500 font-medium' : ''}>
+                      {toGB(server.latestMetrics.memUsed!)} / {toGB(server.latestMetrics.memTotal!)}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1.5">
+                    <div
+                      className={`h-1.5 rounded-full ${memPercent >= 80 ? 'bg-red-500' : 'bg-blue-400'}`}
+                      style={{ width: `${Math.min(memPercent, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              {diskPercent !== null && (
+                <MetricBar value={diskPercent} label="디스크" />
+              )}
+            </div>
+          )}
 
           <div className="mt-3 text-xs text-gray-400">
             <span>마지막 확인: {lastSeen}</span>
