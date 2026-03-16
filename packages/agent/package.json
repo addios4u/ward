@@ -1,8 +1,7 @@
 {
-  "name": "@ward/agent",
+  "name": "@devskeo/ward-agent",
   "version": "0.1.0",
   "license": "MIT",
-  "private": true,
   "description": "Ward 서버 모니터링 에이전트",
   "main": "dist/index.js",
   "bin": {

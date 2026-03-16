@@ -5,7 +5,7 @@
   "private": true,
   "description": "Self-hosted 서버 모니터링 시스템",
   "scripts": {
-    "dev": "concurrently -n web,agent -c green,yellow \"pnpm --filter @ward/web dev\" \"pnpm --filter @ward/agent dev:monitor\"",
+    "dev": "concurrently -n web,agent -c green,yellow \"pnpm --filter @ward/web dev\" \"pnpm --filter @devskeo/ward-agent dev:monitor\"",
     "start": "bash scripts/start.sh",
     "stop": "bash scripts/stop.sh",
     "dev:server": "pnpm --filter @ward/server dev",

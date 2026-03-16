@@ -37,7 +37,7 @@ echo ""
 # ward CLI가 설치되어 있는지 확인
 if ! command -v ward &> /dev/null; then
   echo "오류: ward CLI가 설치되어 있지 않습니다."
-  echo "설치 명령: npm install -g @ward/agent"
+  echo "설치 명령: npm install -g @devskeo/ward-agent"
   exit 1
 fi
 

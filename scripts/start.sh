@@ -22,7 +22,7 @@ echo "Building Ward..."
 cd "$ROOT_DIR"
 pnpm --filter @ward/web build
 pnpm --filter @ward/server build
-pnpm --filter @ward/agent build
+pnpm --filter @devskeo/ward-agent build
 echo "Build complete."
 
 echo "Starting Ward..."

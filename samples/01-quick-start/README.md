@@ -82,7 +82,7 @@ pnpm stop
 
 ## 5단계: 에이전트 설치
 
-`@ward/agent`는 npm에 출시되어 있지 않으므로, 소스에서 빌드해서 설치합니다.
+`@devskeo/ward-agent`는 npm에 출시되어 있지 않으므로, 소스에서 빌드해서 설치합니다.
 
 모니터링할 **대상 서버**에서 아래 명령을 실행합니다.
 
@@ -90,9 +90,9 @@ pnpm stop
 git clone https://github.com/your-org/ward.git ward-agent
 cd ward-agent
 pnpm install
-pnpm --filter @ward/agent build
+pnpm --filter @devskeo/ward-agent build
 # 글로벌 링크
-pnpm --filter @ward/agent link --global
+pnpm --filter @devskeo/ward-agent link --global
 ```
 
 설치 확인:
