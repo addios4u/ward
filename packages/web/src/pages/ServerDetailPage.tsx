@@ -94,7 +94,7 @@ export function ServerDetailPage() {
   return (
     <div className="flex gap-4 h-[calc(100vh-9.5rem)]">
       {/* 왼쪽: 서버 정보 + 메트릭 */}
-      <div className="w-1/2 overflow-y-auto space-y-4 pr-2">
+      <div className="flex-1 min-w-0 overflow-y-auto space-y-4 pr-2">
         <div>
           <Link to="/" className="text-gray-400 hover:text-gray-600 text-sm">
             ← 서버 목록
@@ -176,7 +176,7 @@ export function ServerDetailPage() {
       </div>
 
       {/* 오른쪽: 로그 (항상 표시) */}
-      <div className="w-1/2 flex-shrink-0 flex flex-col min-h-0 bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+      <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
         <div className="px-4 py-2.5 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
           <h2 className="text-sm font-semibold text-gray-700">로그</h2>
           <div className="flex items-center gap-2">
