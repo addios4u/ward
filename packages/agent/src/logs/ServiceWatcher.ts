@@ -74,9 +74,15 @@ export class ServiceWatcher extends EventEmitter {
       }
     }
 
-    // 프로세스 종료
+    // 프로세스 종료 (detached 프로세스 그룹 전체 종료)
     if (entry.process) {
-      try { entry.process.kill(); } catch { /* 이미 종료된 경우 무시 */ }
+      try {
+        if (entry.process.pid) {
+          process.kill(-entry.process.pid, 'SIGTERM'); // 프로세스 그룹 전체 종료
+        } else {
+          entry.process.kill();
+        }
+      } catch { /* 이미 종료된 경우 무시 */ }
     }
 
     // 재시작 타이머 취소
@@ -209,7 +215,8 @@ export class ServiceWatcher extends EventEmitter {
 
     entry.startedAt = new Date();
     // sh -c 사용: KEY=VALUE 환경변수 prefix 및 파이프/리다이렉션 지원
-    const child = spawn('sh', ['-c', command], { stdio: ['ignore', 'pipe', 'pipe'], env });
+    // detached: true → 새 프로세스 그룹 생성, 종료 시 그룹 전체(sh + pnpm + node 등)를 킬
+    const child = spawn('sh', ['-c', command], { stdio: ['ignore', 'pipe', 'pipe'], env, detached: true });
     entry.process = child;
 
     this.emit('status', entry.name, 'running', child.pid, entry.restartCount, entry.startedAt);

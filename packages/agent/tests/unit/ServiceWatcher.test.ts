@@ -294,16 +294,21 @@ describe('ServiceWatcher', () => {
   // unwatch / unwatchAll
   // ──────────────────────────────────────────
   describe('unwatch', () => {
-    it('exec 방식 unwatch 시 프로세스를 kill해야 한다', () => {
+    it('exec 방식 unwatch 시 프로세스 그룹을 kill해야 한다', () => {
       const { child } = makeChild();
       mockSpawn.mockReturnValue(child);
+
+      const processKillSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
 
       const cfg: ServiceConfig = { name: 'myapp', method: 'exec', command: 'node app.js' };
       watcher.watch(cfg);
       watcher.unwatch('myapp');
 
-      expect((child as any).kill).toHaveBeenCalled();
+      // process.kill(-pid, 'SIGTERM')으로 프로세스 그룹 전체 종료
+      expect(processKillSpy).toHaveBeenCalledWith(-(child as any).pid, 'SIGTERM');
       expect(watcher.getWatchedNames()).not.toContain('myapp');
+
+      processKillSpy.mockRestore();
     });
 
     it('unwatchAll은 모든 감시를 해제해야 한다', () => {
@@ -311,13 +316,17 @@ describe('ServiceWatcher', () => {
       const { child: c2 } = makeChild();
       mockSpawn.mockReturnValueOnce(c1).mockReturnValueOnce(c2);
 
+      const processKillSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
+
       watcher.watch({ name: 'a', method: 'exec', command: 'cmd a' });
       watcher.watch({ name: 'b', method: 'exec', command: 'cmd b' });
       watcher.unwatchAll();
 
-      expect((c1 as any).kill).toHaveBeenCalled();
-      expect((c2 as any).kill).toHaveBeenCalled();
+      expect(processKillSpy).toHaveBeenCalledWith(-(c1 as any).pid, 'SIGTERM');
+      expect(processKillSpy).toHaveBeenCalledWith(-(c2 as any).pid, 'SIGTERM');
       expect(watcher.getWatchedNames()).toHaveLength(0);
+
+      processKillSpy.mockRestore();
     });
   });
 });
