@@ -6,10 +6,23 @@
 
 ## 1단계: 에이전트 설치 및 시작
 
-모니터링할 서버에 에이전트를 설치합니다.
+`@ward/agent`는 npm에 출시되어 있지 않으므로, 소스에서 빌드해서 설치합니다.
+
+모니터링할 서버에서 아래 명령을 실행합니다.
 
 ```bash
-npm install -g @ward/agent
+git clone https://github.com/your-org/ward.git ward-agent
+cd ward-agent
+pnpm install
+pnpm --filter @ward/agent build
+# 글로벌 링크
+pnpm --filter @ward/agent link --global
+```
+
+설치 확인:
+
+```bash
+ward --version
 ```
 
 에이전트를 Ward 서버에 연결합니다:
@@ -93,6 +106,10 @@ Ward Agent 상태
 ## systemd로 자동 시작 설정
 
 서버가 재부팅되어도 에이전트가 자동으로 시작되도록 systemd 서비스로 등록합니다.
+
+Linux에서 `ward start` 명령 실행 시 자동으로 systemd 서비스가 등록됩니다.
+
+수동으로 등록하려면:
 
 ```bash
 ward systemd install

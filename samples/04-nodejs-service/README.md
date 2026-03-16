@@ -32,7 +32,8 @@ ward service add '{
 
 ```bash
 # 에이전트 재시작
-ward restart
+ward stop
+ward start http://ward-server:4000
 ```
 
 ---
@@ -69,7 +70,7 @@ ward restart
 
 ## 로그 실시간 확인 방법
 
-Ward 대시보드(`http://<ward-server>:3000`)에 접속한 뒤:
+Ward 대시보드(`http://<ward-server>`)에 접속한 뒤:
 
 1. 좌측 서버 목록에서 해당 서버를 선택합니다.
 2. 상세 페이지 우측 로그 영역에서 실시간 로그 스트림을 확인합니다.
@@ -87,7 +88,14 @@ Ward 대시보드(`http://<ward-server>:3000`)에 접속한 뒤:
 ### API로 재시작
 
 ```bash
-curl -X POST http://<ward-server>:4000/api/servers/<server-id>/services/api-server/restart
+# 1. 먼저 로그인
+curl -s -c cookies.txt -X POST http://<ward-server>:4000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"your-password"}'
+
+# 2. 세션 쿠키로 서비스 재시작
+curl -s -b cookies.txt -X POST \
+  http://<ward-server>:4000/api/servers/<server-id>/services/api-server/restart
 ```
 
 ---
@@ -97,7 +105,7 @@ curl -X POST http://<ward-server>:4000/api/servers/<server-id>/services/api-serv
 - [ ] 현재 pm2로 실행 중인 앱 목록 확인 (`pm2 list`)
 - [ ] 각 앱의 실행 명령어, 환경변수, 메모리 제한 확인 (`pm2 show <name>`)
 - [ ] `~/.ward/config.json`의 `services` 배열에 동일한 설정으로 항목 추가
-- [ ] Ward 에이전트 재시작 (`ward restart`)
+- [ ] Ward 에이전트 재시작 (`ward stop` 후 `ward start http://ward-server:4000`)
 - [ ] 대시보드에서 프로세스 정상 실행 및 로그 수신 확인
 - [ ] pm2 앱 중지 및 제거 (`pm2 stop <name>` → `pm2 delete <name>`)
 - [ ] pm2 startup 설정 제거 (필요 시)

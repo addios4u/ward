@@ -54,46 +54,43 @@ curl -s -b cookies.txt http://ward-server:4000/api/servers
 ### 서버 목록 (`GET /api/servers`)
 
 ```json
-[
-  {
-    "id": "srv_001",
-    "name": "web-server-01",
-    "groupName": "production",
-    "status": "online",
-    "lastSeenAt": "2026-03-16T09:00:00.000Z"
-  },
-  {
-    "id": "srv_002",
-    "name": "db-server-01",
-    "groupName": "production",
-    "status": "offline",
-    "lastSeenAt": "2026-03-15T22:30:00.000Z"
-  }
-]
+{
+  "servers": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "web-server-01",
+      "groupName": "production",
+      "status": "online",
+      "lastSeenAt": "2026-03-16T09:00:00.000Z"
+    },
+    {
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "name": "db-server-01",
+      "groupName": "production",
+      "status": "offline",
+      "lastSeenAt": "2026-03-15T22:30:00.000Z"
+    }
+  ]
+}
 ```
 
 ### 서버 상태 (`GET /api/servers/:id/status`)
 
 ```json
 {
-  "id": "srv_001",
-  "name": "web-server-01",
-  "status": "online",
-  "cpu": 42.5,
-  "memory": {
-    "used": 3221225472,
-    "total": 8589934592,
-    "percent": 37.5
+  "server": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "web-server-01",
+    "status": "online",
+    "hostname": "web-01",
+    "publicIp": "203.0.113.1"
   },
-  "disk": {
-    "used": 107374182400,
-    "total": 536870912000,
-    "percent": 20.0
-  },
-  "services": [
-    { "name": "nginx", "status": "running" },
-    { "name": "postgresql", "status": "running" }
-  ]
+  "latestMetric": {
+    "cpuUsage": 42.5,
+    "memTotal": 8589934592,
+    "memUsed": 3221225472,
+    "loadAvg": [1.2, 1.5, 1.3]
+  }
 }
 ```
 
@@ -188,7 +185,7 @@ chmod +x *.sh
 
 # 사용 예시
 ./check-server-status.sh
-./restart-service.sh srv_001 nginx
-./get-metrics.sh srv_001 30
-./ci-health-check.sh srv_001 my-app
+./restart-service.sh a1b2c3d4-e5f6-7890-abcd-ef1234567890 nginx
+./get-metrics.sh a1b2c3d4-e5f6-7890-abcd-ef1234567890 30
+./ci-health-check.sh a1b2c3d4-e5f6-7890-abcd-ef1234567890 my-app
 ```

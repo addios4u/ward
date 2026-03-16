@@ -8,20 +8,17 @@ Ward 서버 설치부터 첫 에이전트 연결까지의 단계별 가이드입
 
 - Docker 20.10 이상
 - Docker Compose v2.0 이상
-- Node.js v22 이상 (에이전트 설치 시 필요)
+- Node.js v22 이상
+- pnpm
 
 ---
 
-## 1단계: Ward 서버 설치
-
-### 저장소 클론
+## 1단계: 저장소 클론 및 환경변수 설정
 
 ```bash
 git clone https://github.com/your-org/ward.git
 cd ward
 ```
-
-### 환경변수 설정
 
 `.env.example` 파일을 복사해서 `.env` 파일을 만들고, 값을 실제 환경에 맞게 수정합니다.
 
@@ -37,31 +34,65 @@ cp samples/01-quick-start/.env.example .env
 | `REDIS_PASSWORD` | Redis 비밀번호 |
 | `SESSION_SECRET` | 세션 암호화 키 (32자 이상의 랜덤 문자열 권장) |
 
-### Docker Compose로 서버 실행
+---
+
+## 2단계: 의존성 설치
 
 ```bash
-docker compose up -d
-```
-
-서버가 정상적으로 올라오면 다음 서비스가 실행됩니다:
-
-- **Ward API 서버**: `http://your-server:4000`
-- **Ward 웹 UI**: `http://your-server:80` (nginx를 통해 80포트로 제공)
-
-로그 확인:
-
-```bash
-docker compose logs -f
+pnpm install
 ```
 
 ---
 
-## 2단계: 에이전트 설치
+## 3단계: 인프라 실행
+
+PostgreSQL, Redis, pgbouncer, nginx를 Docker Compose로 실행합니다.
+
+```bash
+pnpm docker:start
+```
+
+---
+
+## 4단계: Ward 서버 빌드 및 시작
+
+web/server/agent를 빌드하고 백그라운드로 Ward 서버를 실행합니다.
+
+```bash
+pnpm start
+```
+
+로그 확인:
+
+```bash
+# Ward 서버 로그
+tail -f .ward/ward.log
+
+# 인프라(PostgreSQL, Redis 등) 로그
+pnpm docker:logs
+```
+
+Ward 서버 종료:
+
+```bash
+pnpm stop
+```
+
+---
+
+## 5단계: 에이전트 설치
+
+`@ward/agent`는 npm에 출시되어 있지 않으므로, 소스에서 빌드해서 설치합니다.
 
 모니터링할 **대상 서버**에서 아래 명령을 실행합니다.
 
 ```bash
-npm install -g @ward/agent
+git clone https://github.com/your-org/ward.git ward-agent
+cd ward-agent
+pnpm install
+pnpm --filter @ward/agent build
+# 글로벌 링크
+pnpm --filter @ward/agent link --global
 ```
 
 설치 확인:
@@ -72,7 +103,7 @@ ward --version
 
 ---
 
-## 3단계: 에이전트 시작
+## 6단계: 에이전트 시작
 
 에이전트를 Ward 서버에 연결합니다. `http://your-server:4000` 부분을 실제 서버 주소로 변경하세요.
 
@@ -94,7 +125,7 @@ ward status
 
 ---
 
-## 4단계: 대시보드 접속 확인
+## 7단계: 대시보드 접속
 
 웹 브라우저에서 `http://your-server` 에 접속합니다.
 
@@ -107,8 +138,16 @@ ward status
 ### 에이전트가 서버에 연결되지 않는 경우
 
 1. 서버 방화벽에서 4000 포트가 열려 있는지 확인합니다.
-2. `ward status` 명령으로 에이전트 로그를 확인합니다.
-3. Ward 서버 로그를 확인합니다: `docker compose logs server`
+2. `ward status` 명령으로 에이전트 상태를 확인합니다.
+3. Ward 서버 로그를 확인합니다: `tail -f .ward/ward.log`
+4. 인프라 로그를 확인합니다: `pnpm docker:logs`
+
+### Ward 서버를 재시작하려면
+
+```bash
+pnpm stop
+pnpm start
+```
 
 ### 에이전트를 중지하려면
 

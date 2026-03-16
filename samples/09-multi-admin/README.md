@@ -9,9 +9,10 @@
 ### 웹 UI에서 계정 생성
 
 1. Ward 대시보드에 기존 관리자 계정으로 로그인
-2. 우측 상단 사용자 메뉴 → **관리자 설정** 클릭
-3. **새 관리자 추가** 버튼 클릭
-4. 이메일과 비밀번호 입력 후 저장
+2. 상단 탭 → **설정(Settings)** 클릭
+3. **계정 관리** 섹션으로 이동
+4. **계정 추가** 버튼 클릭
+5. 이메일과 비밀번호 입력 후 저장
 
 ### API로 계정 생성
 
@@ -31,7 +32,7 @@ curl -s -b cookies.txt -X POST http://ward-server:4000/api/users \
 
 ```json
 {
-  "id": "usr_abc123",
+  "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
   "email": "newadmin@example.com",
   "createdAt": "2026-03-16T09:00:00.000Z"
 }
@@ -51,12 +52,12 @@ curl -s -b cookies.txt http://ward-server:4000/api/users | jq .
 ```json
 [
   {
-    "id": "usr_001",
+    "id": "d4e5f6a7-b8c9-0123-defa-234567890123",
     "email": "admin@example.com",
     "createdAt": "2026-01-01T00:00:00.000Z"
   },
   {
-    "id": "usr_002",
+    "id": "e5f6a7b8-c9d0-1234-efab-345678901234",
     "email": "devops@example.com",
     "createdAt": "2026-03-10T10:00:00.000Z"
   }
@@ -69,15 +70,16 @@ curl -s -b cookies.txt http://ward-server:4000/api/users | jq .
 
 ### 웹 UI에서 삭제
 
-1. Ward 대시보드 → 관리자 설정
-2. 삭제할 계정 우측 **삭제** 버튼 클릭
-3. 확인 다이얼로그에서 **삭제** 클릭
+1. 상단 탭 → **설정** 클릭
+2. **계정 관리** 섹션으로 이동
+3. 삭제할 계정 우측 **삭제** 버튼 클릭
+4. 확인 다이얼로그에서 **삭제** 클릭
 
 ### API로 삭제
 
 ```bash
 # 특정 사용자 삭제 (user ID 필요)
-curl -s -b cookies.txt -X DELETE http://ward-server:4000/api/users/usr_002
+curl -s -b cookies.txt -X DELETE http://ward-server:4000/api/users/e5f6a7b8-c9d0-1234-efab-345678901234
 ```
 
 > **주의**: 마지막 관리자 계정은 삭제할 수 없습니다. 최소 1개의 계정이 유지되어야 합니다.
@@ -88,15 +90,16 @@ curl -s -b cookies.txt -X DELETE http://ward-server:4000/api/users/usr_002
 
 ### 웹 UI에서 변경
 
-1. Ward 대시보드 → 프로필 설정
-2. **비밀번호 변경** 클릭
-3. 현재 비밀번호와 새 비밀번호 입력
+1. 상단 탭 → **설정** 클릭
+2. **계정 관리** 섹션으로 이동
+3. 변경할 계정의 **비밀번호 변경** 버튼 클릭
+4. 새 비밀번호 입력 후 저장
 
 ### API로 변경
 
 ```bash
 # 특정 사용자의 비밀번호 변경
-curl -s -b cookies.txt -X PATCH http://ward-server:4000/api/users/usr_001/password \
+curl -s -b cookies.txt -X PATCH http://ward-server:4000/api/users/d4e5f6a7-b8c9-0123-defa-234567890123/password \
   -H "Content-Type: application/json" \
   -d '{"password":"new-secure-password"}'
 ```
@@ -125,11 +128,16 @@ Ward 대시보드는 내부 네트워크 또는 VPN에서만 접근하도록 제
 
 ```nginx
 # nginx 예시: 특정 IP 대역만 허용
+upstream ward_backend {
+    server host.docker.internal:4000;
+    server host.docker.internal:4001;
+}
+
 location / {
     allow 10.0.0.0/8;
     allow 192.168.0.0/16;
     deny all;
-    proxy_pass http://ward-web:3000;
+    proxy_pass http://ward_backend;
 }
 ```
 
@@ -165,10 +173,10 @@ chmod +x manage-users.sh
 ./manage-users.sh add devops@example.com secure-password
 
 # 계정 삭제
-./manage-users.sh delete usr_002
+./manage-users.sh delete e5f6a7b8-c9d0-1234-efab-345678901234
 
 # 비밀번호 변경
-./manage-users.sh change-password usr_001 new-password
+./manage-users.sh change-password d4e5f6a7-b8c9-0123-defa-234567890123 new-password
 ```
 
 자세한 사용법은 `manage-users.sh --help` 를 참고하세요.
