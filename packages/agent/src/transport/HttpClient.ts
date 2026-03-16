@@ -101,6 +101,9 @@ export class HttpClient {
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
+      if (!response.ok) {
+        throw new Error(`HTTP 오류: ${response.status} ${response.statusText}`);
+      }
       const data = await response.json() as { serverId: string };
       return data;
     } catch (error) {
