@@ -4,6 +4,7 @@ import { ServerCard } from '@/components/dashboard/ServerCard';
 import { Spinner } from '@/components/ui/Spinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal';
+import { useTranslation } from 'react-i18next';
 import type { Server } from '@/types';
 
 const POLL_INTERVAL_MS = 30_000;
@@ -29,11 +30,11 @@ function sortServersInGroup(servers: Server[]): Server[] {
 }
 
 // 서버를 그룹별로 묶어 반환 (groupName null → "미분류")
-function groupServers(servers: Server[]): { groupName: string; servers: Server[] }[] {
+function groupServers(servers: Server[], ungroupedLabel: string): { groupName: string; servers: Server[] }[] {
   const groupMap = new Map<string, Server[]>();
 
   for (const server of servers) {
-    const key = server.groupName ?? '미분류';
+    const key = server.groupName ?? ungroupedLabel;
     if (!groupMap.has(key)) {
       groupMap.set(key, []);
     }
@@ -46,8 +47,8 @@ function groupServers(servers: Server[]): { groupName: string; servers: Server[]
     const bHasIssue = bServers.some(s => s.status !== 'online');
     if (aHasIssue !== bHasIssue) return aHasIssue ? -1 : 1;
     // 미분류는 항상 마지막
-    if (aName === '미분류') return 1;
-    if (bName === '미분류') return -1;
+    if (aName === ungroupedLabel) return 1;
+    if (bName === ungroupedLabel) return -1;
     return aName.localeCompare(bName);
   });
 
@@ -56,6 +57,7 @@ function groupServers(servers: Server[]): { groupName: string; servers: Server[]
 
 // 전체 서버 목록 페이지
 export function ServersPage() {
+  const { t } = useTranslation();
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +72,7 @@ export function ServersPage() {
       setServers(prev => prev.filter(s => s.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : '삭제 실패');
+      alert(err instanceof Error ? err.message : t('servers.deleteErrorMessage'));
     } finally {
       setDeleteLoading(false);
     }
@@ -102,7 +104,7 @@ export function ServersPage() {
     return (
       <div className="flex items-center justify-center h-64 gap-3 text-gray-500">
         <Spinner size="md" />
-        <span>서버 목록 불러오는 중...</span>
+        <span>{t('servers.loadingMessage')}</span>
       </div>
     );
   }
@@ -111,21 +113,22 @@ export function ServersPage() {
     return <ErrorMessage message={error} onRetry={fetchServers} />;
   }
 
-  const groups = groupServers(servers);
+  const ungroupedLabel = t('servers.ungrouped');
+  const groups = groupServers(servers, ungroupedLabel);
 
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-bold text-gray-900">서버 목록</h1>
-        <span className="text-sm text-gray-500">총 {servers.length}대</span>
+        <h1 className="text-2xl font-bold text-gray-900">{t('servers.title')}</h1>
+        <span className="text-sm text-gray-500">{t('servers.count', { count: servers.length })}</span>
       </div>
       <p className="text-sm text-gray-400 mb-6">
-        서버에 ward 에이전트를 설치하면 자동으로 이곳에 나타납니다.
+        {t('servers.emptyDesc')}
       </p>
 
       {servers.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
-          등록된 서버가 없습니다.
+          {t('servers.emptyTitle')}
         </div>
       ) : (
         <div className="space-y-8">
@@ -137,7 +140,7 @@ export function ServersPage() {
                   {groupName}
                 </span>
                 <div className="flex-1 h-px bg-gray-200" />
-                <span className="text-xs text-gray-400">{groupedServers.length}대</span>
+                <span className="text-xs text-gray-400">{t('servers.groupCount', { count: groupedServers.length })}</span>
               </div>
               {/* 그룹 내 서버 카드 목록 */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -157,7 +160,7 @@ export function ServersPage() {
                           }}
                           className="absolute top-2 right-2 z-20 px-2 py-0.5 text-xs bg-red-500 hover:bg-red-600 text-white rounded shadow"
                         >
-                          삭제
+                          {t('common.delete')}
                         </button>
                       )}
                     </div>
@@ -171,8 +174,8 @@ export function ServersPage() {
 
       {deleteTarget && (
         <DeleteConfirmModal
-          title={`"${deleteTarget.name}" 서버를 삭제하시겠습니까?`}
-          description="에이전트가 재시작되면 자동으로 재등록됩니다."
+          title={`"${deleteTarget.name}" ${t('common.delete')}?`}
+          description={t('servers.deleteConfirmDesc')}
           onConfirm={handleDeleteConfirm}
           onCancel={() => setDeleteTarget(null)}
           loading={deleteLoading}

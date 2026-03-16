@@ -1,0 +1,156 @@
+{
+  "nav": {
+    "servers": "서버",
+    "services": "서비스",
+    "settings": "설정",
+    "logout": "로그아웃"
+  },
+  "common": {
+    "loading": "로딩 중...",
+    "delete": "삭제",
+    "cancel": "취소",
+    "deleting": "삭제 중...",
+    "retry": "재시도",
+    "error": "오류: {{message}}"
+  },
+  "login": {
+    "subtitle": "서버 모니터링 대시보드에 로그인하세요",
+    "email": "이메일",
+    "password": "비밀번호",
+    "emailPlaceholder": "admin@example.com",
+    "passwordPlaceholder": "••••••••",
+    "captchaTitle": "보안 인증",
+    "captchaPlaceholder": "답을 입력하세요",
+    "captchaRefresh": "문제 새로 받기",
+    "submitting": "로그인 중...",
+    "submit": "로그인",
+    "errorTooManyAttempts": "너무 많은 로그인 시도입니다. {{minutes}}분 후에 다시 시도해주세요.",
+    "errorFailed": "로그인에 실패했습니다."
+  },
+  "servers": {
+    "title": "서버 목록",
+    "count": "총 {{count}}대",
+    "emptyTitle": "등록된 서버가 없습니다.",
+    "emptyDesc": "서버에 ward 에이전트를 설치하면 자동으로 이곳에 나타납니다.",
+    "ungrouped": "미분류",
+    "groupCount": "{{count}}대",
+    "loadingMessage": "서버 목록 불러오는 중...",
+    "deleteErrorMessage": "삭제 실패",
+    "deleteConfirmDesc": "에이전트가 재시작되면 자동으로 재등록됩니다."
+  },
+  "services": {
+    "title": "서비스",
+    "count": "총 {{count}}개 서비스",
+    "emptyTitle": "등록된 서비스가 없습니다.",
+    "emptyDesc": "에이전트가 설치된 서버에서 위 명령어로 서비스를 등록하세요.",
+    "loadingMessage": "서비스 목록 불러오는 중...",
+    "deleteErrorMessage": "삭제 실패",
+    "colName": "서비스명",
+    "colType": "타입",
+    "colStatus": "상태",
+    "colPid": "PID",
+    "colRestarts": "재시작",
+    "colCpu": "CPU%",
+    "colMemory": "메모리",
+    "colStartedAt": "시작 시각"
+  },
+  "serverDetail": {
+    "cpuUsage": "CPU 사용률",
+    "memoryUsage": "메모리 사용",
+    "loadAvg": "부하 평균",
+    "performanceGraph": "성능 그래프",
+    "metricsLoading": "메트릭 불러오는 중...",
+    "services": "서비스",
+    "logs": "로그",
+    "ip": "IP",
+    "lastSeen": "마지막 확인: {{time}}"
+  },
+  "serviceDetail": {
+    "restart": "재시작",
+    "restarting": "재시작 중...",
+    "status": "상태",
+    "pid": "PID",
+    "restartCount": "재시작 횟수",
+    "startedAt": "시작 시각",
+    "cpu": "CPU",
+    "memory": "메모리",
+    "performanceGraph": "성능 그래프",
+    "command": "명령어",
+    "logFiles": "로그 파일",
+    "logs": "로그",
+    "loadingMessage": "서비스 정보 불러오는 중...",
+    "notFound": "서비스를 찾을 수 없습니다."
+  },
+  "settings": {
+    "title": "설정",
+    "accountManagement": "계정 관리",
+    "addAccount": "계정 추가",
+    "loading": "불러오는 중...",
+    "noAccounts": "등록된 계정이 없습니다.",
+    "colEmail": "이메일",
+    "colCreatedAt": "등록일",
+    "changePassword": "비밀번호 변경",
+    "delete": "삭제",
+    "deleteAccountError": "계정 삭제 실패",
+    "systemInfo": "시스템 정보",
+    "wardVersion": "Ward 버전",
+    "serverUrl": "서버 URL",
+    "addAccountTitle": "계정 추가",
+    "emailLabel": "이메일",
+    "emailPlaceholder": "admin@example.com",
+    "passwordLabel": "비밀번호",
+    "passwordPlaceholder": "비밀번호 입력",
+    "addAccountError": "계정 추가 실패",
+    "adding": "추가 중...",
+    "add": "추가",
+    "changePasswordTitle": "비밀번호 변경",
+    "newPassword": "새 비밀번호",
+    "newPasswordPlaceholder": "새 비밀번호 입력",
+    "changePasswordError": "비밀번호 변경 실패",
+    "changing": "변경 중...",
+    "change": "변경",
+    "language": "언어",
+    "languageDesc": "대시보드 표시 언어를 선택합니다."
+  },
+  "status": {
+    "online": "온라인",
+    "offline": "오프라인",
+    "unknown": "알 수 없음",
+    "running": "실행 중",
+    "stopped": "중지됨",
+    "error": "오류",
+    "unknownService": "알 수 없음"
+  },
+  "metrics": {
+    "cpu": "CPU",
+    "memory": "메모리",
+    "disk": "디스크",
+    "cpuUsage": "CPU 사용률",
+    "memoryUsage": "메모리 사용률",
+    "noData": "메트릭 데이터가 없습니다.",
+    "collecting": "데이터 수집 중..."
+  },
+  "logs": {
+    "all": "전체",
+    "empty": "로그가 없습니다."
+  },
+  "deleteModal": {
+    "cancel": "취소",
+    "deleting": "삭제 중...",
+    "delete": "삭제"
+  },
+  "spinner": {
+    "loading": "로딩 중"
+  },
+  "serverCard": {
+    "ip": "IP",
+    "lastSeen": "마지막 확인: {{time}}",
+    "none": "없음"
+  },
+  "languages": {
+    "ko": "한국어",
+    "en": "English",
+    "ja": "日本語",
+    "zh": "中文"
+  }
+}

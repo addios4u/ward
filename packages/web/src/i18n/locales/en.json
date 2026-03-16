@@ -1,0 +1,156 @@
+{
+  "nav": {
+    "servers": "Servers",
+    "services": "Services",
+    "settings": "Settings",
+    "logout": "Logout"
+  },
+  "common": {
+    "loading": "Loading...",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "deleting": "Deleting...",
+    "retry": "Retry",
+    "error": "Error: {{message}}"
+  },
+  "login": {
+    "subtitle": "Sign in to the server monitoring dashboard",
+    "email": "Email",
+    "password": "Password",
+    "emailPlaceholder": "admin@example.com",
+    "passwordPlaceholder": "••••••••",
+    "captchaTitle": "Security Verification",
+    "captchaPlaceholder": "Enter your answer",
+    "captchaRefresh": "Get new question",
+    "submitting": "Signing in...",
+    "submit": "Sign In",
+    "errorTooManyAttempts": "Too many login attempts. Please try again in {{minutes}} minutes.",
+    "errorFailed": "Login failed."
+  },
+  "servers": {
+    "title": "Servers",
+    "count": "{{count}} server(s)",
+    "emptyTitle": "No servers registered.",
+    "emptyDesc": "Servers will appear here automatically once the ward agent is installed.",
+    "ungrouped": "Ungrouped",
+    "groupCount": "{{count}} server(s)",
+    "loadingMessage": "Loading servers...",
+    "deleteErrorMessage": "Delete failed",
+    "deleteConfirmDesc": "The server will be re-registered automatically when the agent restarts."
+  },
+  "services": {
+    "title": "Services",
+    "count": "{{count}} service(s)",
+    "emptyTitle": "No services registered.",
+    "emptyDesc": "Register a service on the server where the agent is installed using the command above.",
+    "loadingMessage": "Loading services...",
+    "deleteErrorMessage": "Delete failed",
+    "colName": "Name",
+    "colType": "Type",
+    "colStatus": "Status",
+    "colPid": "PID",
+    "colRestarts": "Restarts",
+    "colCpu": "CPU%",
+    "colMemory": "Memory",
+    "colStartedAt": "Started At"
+  },
+  "serverDetail": {
+    "cpuUsage": "CPU Usage",
+    "memoryUsage": "Memory Usage",
+    "loadAvg": "Load Average",
+    "performanceGraph": "Performance Graph",
+    "metricsLoading": "Loading metrics...",
+    "services": "Services",
+    "logs": "Logs",
+    "ip": "IP",
+    "lastSeen": "Last seen: {{time}}"
+  },
+  "serviceDetail": {
+    "restart": "Restart",
+    "restarting": "Restarting...",
+    "status": "Status",
+    "pid": "PID",
+    "restartCount": "Restart Count",
+    "startedAt": "Started At",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "performanceGraph": "Performance Graph",
+    "command": "Command",
+    "logFiles": "Log Files",
+    "logs": "Logs",
+    "loadingMessage": "Loading service info...",
+    "notFound": "Service not found."
+  },
+  "settings": {
+    "title": "Settings",
+    "accountManagement": "Account Management",
+    "addAccount": "Add Account",
+    "loading": "Loading...",
+    "noAccounts": "No accounts registered.",
+    "colEmail": "Email",
+    "colCreatedAt": "Created At",
+    "changePassword": "Change Password",
+    "delete": "Delete",
+    "deleteAccountError": "Failed to delete account",
+    "systemInfo": "System Info",
+    "wardVersion": "Ward Version",
+    "serverUrl": "Server URL",
+    "addAccountTitle": "Add Account",
+    "emailLabel": "Email",
+    "emailPlaceholder": "admin@example.com",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Enter password",
+    "addAccountError": "Failed to add account",
+    "adding": "Adding...",
+    "add": "Add",
+    "changePasswordTitle": "Change Password",
+    "newPassword": "New Password",
+    "newPasswordPlaceholder": "Enter new password",
+    "changePasswordError": "Failed to change password",
+    "changing": "Changing...",
+    "change": "Change",
+    "language": "Language",
+    "languageDesc": "Select the display language for the dashboard."
+  },
+  "status": {
+    "online": "Online",
+    "offline": "Offline",
+    "unknown": "Unknown",
+    "running": "Running",
+    "stopped": "Stopped",
+    "error": "Error",
+    "unknownService": "Unknown"
+  },
+  "metrics": {
+    "cpu": "CPU",
+    "memory": "Memory",
+    "disk": "Disk",
+    "cpuUsage": "CPU Usage",
+    "memoryUsage": "Memory Usage",
+    "noData": "No metrics data available.",
+    "collecting": "Collecting data..."
+  },
+  "logs": {
+    "all": "All",
+    "empty": "No logs available."
+  },
+  "deleteModal": {
+    "cancel": "Cancel",
+    "deleting": "Deleting...",
+    "delete": "Delete"
+  },
+  "spinner": {
+    "loading": "Loading"
+  },
+  "serverCard": {
+    "ip": "IP",
+    "lastSeen": "Last seen: {{time}}",
+    "none": "N/A"
+  },
+  "languages": {
+    "ko": "한국어",
+    "en": "English",
+    "ja": "日本語",
+    "zh": "中文"
+  }
+}

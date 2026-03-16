@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   LineChart,
   Line,
@@ -21,10 +22,12 @@ interface ServiceMetricsChartProps {
 }
 
 export function ServiceMetricsChart({ data }: ServiceMetricsChartProps) {
+  const { t } = useTranslation();
+
   if (data.length < 2) {
     return (
       <div className="flex items-center justify-center h-40 text-gray-400 text-sm">
-        데이터 수집 중...
+        {t('metrics.collecting')}
       </div>
     );
   }
@@ -38,10 +41,10 @@ export function ServiceMetricsChart({ data }: ServiceMetricsChartProps) {
         <YAxis yAxisId="mem" orientation="right" tick={{ fontSize: 10 }} tickFormatter={(v: number) => `${v}M`} width={40} />
         <Tooltip
           formatter={(value: number, name: string) =>
-            name === 'cpu' ? [`${value}%`, 'CPU'] : [`${value} MB`, '메모리']
+            name === 'cpu' ? [`${value}%`, t('metrics.cpu')] : [`${value} MB`, t('metrics.memory')]
           }
         />
-        <Legend formatter={(v: string) => (v === 'cpu' ? 'CPU' : '메모리')} />
+        <Legend formatter={(v: string) => (v === 'cpu' ? t('metrics.cpu') : t('metrics.memory'))} />
         <Line yAxisId="cpu" type="monotone" dataKey="cpu" stroke="#3b82f6" dot={false} strokeWidth={2} connectNulls />
         <Line yAxisId="mem" type="monotone" dataKey="mem" stroke="#10b981" dot={false} strokeWidth={2} connectNulls />
       </LineChart>

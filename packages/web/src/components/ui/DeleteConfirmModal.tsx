@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from './Button';
 
 interface DeleteConfirmModalProps {
@@ -10,6 +11,8 @@ interface DeleteConfirmModalProps {
 }
 
 export function DeleteConfirmModal({ title, description, onConfirm, onCancel, loading }: DeleteConfirmModalProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6">
@@ -29,10 +32,10 @@ export function DeleteConfirmModal({ title, description, onConfirm, onCancel, lo
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onCancel} disabled={loading}>
-            취소
+            {t('deleteModal.cancel')}
           </Button>
           <Button variant="danger" onClick={onConfirm} disabled={loading}>
-            {loading ? '삭제 중...' : '삭제'}
+            {loading ? t('deleteModal.deleting') : t('deleteModal.delete')}
           </Button>
         </div>
       </div>

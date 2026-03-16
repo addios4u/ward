@@ -1,0 +1,156 @@
+{
+  "nav": {
+    "servers": "服务器",
+    "services": "服务",
+    "settings": "设置",
+    "logout": "退出登录"
+  },
+  "common": {
+    "loading": "加载中...",
+    "delete": "删除",
+    "cancel": "取消",
+    "deleting": "删除中...",
+    "retry": "重试",
+    "error": "错误: {{message}}"
+  },
+  "login": {
+    "subtitle": "登录服务器监控仪表板",
+    "email": "邮箱",
+    "password": "密码",
+    "emailPlaceholder": "admin@example.com",
+    "passwordPlaceholder": "••••••••",
+    "captchaTitle": "安全验证",
+    "captchaPlaceholder": "请输入答案",
+    "captchaRefresh": "获取新问题",
+    "submitting": "登录中...",
+    "submit": "登录",
+    "errorTooManyAttempts": "登录尝试次数过多，请{{minutes}}分钟后重试。",
+    "errorFailed": "登录失败。"
+  },
+  "servers": {
+    "title": "服务器列表",
+    "count": "共 {{count}} 台",
+    "emptyTitle": "暂无注册服务器。",
+    "emptyDesc": "在服务器上安装ward代理后，将自动显示在此处。",
+    "ungrouped": "未分组",
+    "groupCount": "{{count}} 台",
+    "loadingMessage": "正在加载服务器列表...",
+    "deleteErrorMessage": "删除失败",
+    "deleteConfirmDesc": "代理重启后将自动重新注册。"
+  },
+  "services": {
+    "title": "服务",
+    "count": "共 {{count}} 个服务",
+    "emptyTitle": "暂无注册服务。",
+    "emptyDesc": "请在安装了代理的服务器上使用上述命令注册服务。",
+    "loadingMessage": "正在加载服务列表...",
+    "deleteErrorMessage": "删除失败",
+    "colName": "服务名称",
+    "colType": "类型",
+    "colStatus": "状态",
+    "colPid": "PID",
+    "colRestarts": "重启次数",
+    "colCpu": "CPU%",
+    "colMemory": "内存",
+    "colStartedAt": "启动时间"
+  },
+  "serverDetail": {
+    "cpuUsage": "CPU使用率",
+    "memoryUsage": "内存使用量",
+    "loadAvg": "平均负载",
+    "performanceGraph": "性能图表",
+    "metricsLoading": "正在加载指标...",
+    "services": "服务",
+    "logs": "日志",
+    "ip": "IP",
+    "lastSeen": "最后检查: {{time}}"
+  },
+  "serviceDetail": {
+    "restart": "重启",
+    "restarting": "重启中...",
+    "status": "状态",
+    "pid": "PID",
+    "restartCount": "重启次数",
+    "startedAt": "启动时间",
+    "cpu": "CPU",
+    "memory": "内存",
+    "performanceGraph": "性能图表",
+    "command": "命令",
+    "logFiles": "日志文件",
+    "logs": "日志",
+    "loadingMessage": "正在加载服务信息...",
+    "notFound": "未找到服务。"
+  },
+  "settings": {
+    "title": "设置",
+    "accountManagement": "账户管理",
+    "addAccount": "添加账户",
+    "loading": "加载中...",
+    "noAccounts": "暂无注册账户。",
+    "colEmail": "邮箱",
+    "colCreatedAt": "注册日期",
+    "changePassword": "修改密码",
+    "delete": "删除",
+    "deleteAccountError": "账户删除失败",
+    "systemInfo": "系统信息",
+    "wardVersion": "Ward版本",
+    "serverUrl": "服务器URL",
+    "addAccountTitle": "添加账户",
+    "emailLabel": "邮箱",
+    "emailPlaceholder": "admin@example.com",
+    "passwordLabel": "密码",
+    "passwordPlaceholder": "请输入密码",
+    "addAccountError": "账户添加失败",
+    "adding": "添加中...",
+    "add": "添加",
+    "changePasswordTitle": "修改密码",
+    "newPassword": "新密码",
+    "newPasswordPlaceholder": "请输入新密码",
+    "changePasswordError": "密码修改失败",
+    "changing": "修改中...",
+    "change": "修改",
+    "language": "语言",
+    "languageDesc": "选择仪表板的显示语言。"
+  },
+  "status": {
+    "online": "在线",
+    "offline": "离线",
+    "unknown": "未知",
+    "running": "运行中",
+    "stopped": "已停止",
+    "error": "错误",
+    "unknownService": "未知"
+  },
+  "metrics": {
+    "cpu": "CPU",
+    "memory": "内存",
+    "disk": "磁盘",
+    "cpuUsage": "CPU使用率",
+    "memoryUsage": "内存使用率",
+    "noData": "暂无指标数据。",
+    "collecting": "数据收集中..."
+  },
+  "logs": {
+    "all": "全部",
+    "empty": "暂无日志。"
+  },
+  "deleteModal": {
+    "cancel": "取消",
+    "deleting": "删除中...",
+    "delete": "删除"
+  },
+  "spinner": {
+    "loading": "加载中"
+  },
+  "serverCard": {
+    "ip": "IP",
+    "lastSeen": "最后检查: {{time}}",
+    "none": "无"
+  },
+  "languages": {
+    "ko": "한국어",
+    "en": "English",
+    "ja": "日本語",
+    "zh": "中文"
+  }
+}

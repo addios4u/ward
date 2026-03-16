@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface SpinnerProps {
   size?: 'sm' | 'md' | 'lg';
@@ -13,11 +14,13 @@ const sizeStyles = {
 
 // 로딩 스피너 컴포넌트
 export function Spinner({ size = 'md', className = '' }: SpinnerProps) {
+  const { t } = useTranslation();
+
   return (
     <div
       className={`animate-spin rounded-full border-2 border-gray-300 border-t-blue-600 ${sizeStyles[size]} ${className}`}
       role="status"
-      aria-label="로딩 중"
+      aria-label={t('spinner.loading')}
     />
   );
 }

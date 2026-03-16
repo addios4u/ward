@@ -7,6 +7,7 @@ import { LogViewer } from '@/components/dashboard/LogViewer';
 import { ServiceMetricsChart } from '@/components/dashboard/ServiceMetricsChart';
 import type { ServiceMetricsPoint } from '@/components/dashboard/ServiceMetricsChart';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { useTranslation } from 'react-i18next';
 import type { WardService, Log, LogLevel, WsMessage } from '@/types';
 
 function ServiceStatusDot({ status }: { status: string }) {
@@ -23,6 +24,7 @@ function ServiceStatusDot({ status }: { status: string }) {
 export function ServiceDetailPage() {
   const { serverId, serviceName } = useParams<{ serverId: string; serviceName: string }>();
   const decodedName = serviceName ? decodeURIComponent(serviceName) : '';
+  const { t } = useTranslation();
 
   const [service, setService] = useState<WardService | null>(null);
   const [metricsHistory, setMetricsHistory] = useState<ServiceMetricsPoint[]>([]);
@@ -41,12 +43,12 @@ export function ServiceDetailPage() {
       .then((res) => {
         const found = res.services.find(s => s.name === decodedName);
         if (!found) {
-          setError('서비스를 찾을 수 없습니다.');
+          setError(t('serviceDetail.notFound'));
         } else {
           setService(found);
           if (found.status === 'running') {
             const point: ServiceMetricsPoint = {
-              time: new Date().toLocaleTimeString('ko-KR'),
+              time: new Date().toLocaleTimeString(),
               cpu: found.cpuUsage,
               mem: found.memUsage !== null ? Math.round(found.memUsage / 1024 / 1024 * 10) / 10 : null,
             };
@@ -59,7 +61,7 @@ export function ServiceDetailPage() {
         setError(err.message);
         setLoading(false);
       });
-  }, [serverId, decodedName]);
+  }, [serverId, decodedName, t]);
 
   const fetchLogs = useCallback(() => {
     if (!serverId || !decodedName) return;
@@ -87,7 +89,7 @@ export function ServiceDetailPage() {
         setRestarting(false);
       }, 3000);
     } catch (err: unknown) {
-      setRestartError(err instanceof Error ? err.message : '재시작 실패');
+      setRestartError(err instanceof Error ? err.message : t('common.error', { message: '' }));
       setRestarting(false);
     }
   };
@@ -126,13 +128,13 @@ export function ServiceDetailPage() {
     return (
       <div className="flex items-center justify-center h-64 gap-3 text-gray-500">
         <Spinner size="md" />
-        <span>서비스 정보 불러오는 중...</span>
+        <span>{t('serviceDetail.loadingMessage')}</span>
       </div>
     );
   }
 
   if (error || !service) {
-    return <ErrorMessage message={error ?? '서비스를 찾을 수 없습니다.'} onRetry={fetchService} />;
+    return <ErrorMessage message={error ?? t('serviceDetail.notFound')} onRetry={fetchService} />;
   }
 
   return (
@@ -160,10 +162,10 @@ export function ServiceDetailPage() {
               {restarting ? (
                 <>
                   <span className="inline-block w-3.5 h-3.5 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin" />
-                  재시작 중...
+                  {t('serviceDetail.restarting')}
                 </>
               ) : (
-                <>↺ 재시작</>
+                <>↺ {t('serviceDetail.restart')}</>
               )}
             </button>
           </div>
@@ -174,20 +176,20 @@ export function ServiceDetailPage() {
 
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="text-xs text-gray-400 mb-0.5">상태</p>
+              <p className="text-xs text-gray-400 mb-0.5">{t('serviceDetail.status')}</p>
               <p className="font-medium capitalize text-gray-800">{service.status}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 mb-0.5">PID</p>
+              <p className="text-xs text-gray-400 mb-0.5">{t('serviceDetail.pid')}</p>
               <p className="font-mono text-gray-800">{service.pid ?? '-'}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 mb-0.5">재시작 횟수</p>
+              <p className="text-xs text-gray-400 mb-0.5">{t('serviceDetail.restartCount')}</p>
               <p className="text-gray-800">{service.restartCount}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 mb-0.5">시작 시각</p>
-              <p className="text-gray-800">{service.startedAt ? new Date(service.startedAt).toLocaleString('ko-KR') : '-'}</p>
+              <p className="text-xs text-gray-400 mb-0.5">{t('serviceDetail.startedAt')}</p>
+              <p className="text-gray-800">{service.startedAt ? new Date(service.startedAt).toLocaleString() : '-'}</p>
             </div>
           </div>
 
@@ -195,13 +197,13 @@ export function ServiceDetailPage() {
           {service.status === 'running' && (
             <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-xs text-gray-400 mb-0.5">CPU</p>
+                <p className="text-xs text-gray-400 mb-0.5">{t('serviceDetail.cpu')}</p>
                 <p className="font-mono text-gray-800">
                   {service.cpuUsage !== null ? `${service.cpuUsage.toFixed(1)}%` : '-'}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-400 mb-0.5">메모리</p>
+                <p className="text-xs text-gray-400 mb-0.5">{t('serviceDetail.memory')}</p>
                 <p className="font-mono text-gray-800">
                   {service.memUsage !== null ? `${(service.memUsage / 1024 / 1024).toFixed(1)} MB` : '-'}
                 </p>
@@ -213,7 +215,7 @@ export function ServiceDetailPage() {
 
         {/* 성능 그래프 카드 */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">성능 그래프</h2>
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">{t('serviceDetail.performanceGraph')}</h2>
           <ServiceMetricsChart data={metricsHistory} />
         </div>
 
@@ -222,13 +224,13 @@ export function ServiceDetailPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 space-y-4">
             {Boolean(service.config['command']) && (
               <div>
-                <p className="text-xs text-gray-400 mb-1">명령어</p>
+                <p className="text-xs text-gray-400 mb-1">{t('serviceDetail.command')}</p>
                 <p className="font-mono text-sm bg-gray-50 px-3 py-2 rounded text-gray-700">{String(service.config['command'])}</p>
               </div>
             )}
             {Boolean(service.config['paths']) && (
               <div>
-                <p className="text-xs text-gray-400 mb-1">로그 파일</p>
+                <p className="text-xs text-gray-400 mb-1">{t('serviceDetail.logFiles')}</p>
                 <p className="font-mono text-sm bg-gray-50 px-3 py-2 rounded text-gray-700">{(service.config['paths'] as string[]).join(', ')}</p>
               </div>
             )}
@@ -239,7 +241,7 @@ export function ServiceDetailPage() {
       {/* 오른쪽: 로그 (항상 표시) */}
       <div className="w-[70%] min-w-0 flex flex-col min-h-0 bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
         <div className="px-4 py-2.5 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-          <h2 className="text-sm font-semibold text-gray-700">로그</h2>
+          <h2 className="text-sm font-semibold text-gray-700">{t('serviceDetail.logs')}</h2>
           <div className="flex items-center gap-2">
             {logsLoading && <Spinner size="sm" />}
             <button

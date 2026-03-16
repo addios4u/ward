@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal';
+import { useTranslation } from 'react-i18next';
 import type { ServicesResponse, WardService } from '@/types';
 
 const POLL_INTERVAL_MS = 30_000;
@@ -53,11 +54,12 @@ function ServiceTypeBadge({ type }: { type: string }) {
 
 function formatUptime(startedAt: string | null): string {
   if (!startedAt) return '-';
-  return new Date(startedAt).toLocaleString('ko-KR');
+  return new Date(startedAt).toLocaleString();
 }
 
 export function ServicesPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [data, setData] = useState<ServicesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +91,7 @@ export function ServicesPage() {
       } : prev);
       setDeleteTarget(null);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : '삭제 실패');
+      alert(err instanceof Error ? err.message : t('services.deleteErrorMessage'));
     } finally {
       setDeleteLoading(false);
     }
@@ -105,7 +107,7 @@ export function ServicesPage() {
     return (
       <div className="flex items-center justify-center h-64 gap-3 text-gray-500">
         <Spinner size="md" />
-        <span>서비스 목록 불러오는 중...</span>
+        <span>{t('services.loadingMessage')}</span>
       </div>
     );
   }
@@ -140,17 +142,17 @@ export function ServicesPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">서비스</h1>
-        <span className="text-sm text-gray-500">총 {services.length}개 서비스</span>
+        <h1 className="text-2xl font-bold text-gray-900">{t('services.title')}</h1>
+        <span className="text-sm text-gray-500">{t('services.count', { count: services.length })}</span>
       </div>
 
       {services.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          <p className="text-lg mb-2">등록된 서비스가 없습니다.</p>
+          <p className="text-lg mb-2">{t('services.emptyTitle')}</p>
           <p className="text-sm font-mono bg-gray-50 inline-block px-4 py-2 rounded mt-2">
             ward service add &lt;이름&gt; --exec "명령어"
           </p>
-          <p className="text-xs mt-3 text-gray-400">에이전트가 설치된 서버에서 위 명령어로 서비스를 등록하세요.</p>
+          <p className="text-xs mt-3 text-gray-400">{t('services.emptyDesc')}</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -171,14 +173,14 @@ export function ServicesPage() {
               <table className="w-full text-sm">
                 <thead className="border-b border-gray-100">
                   <tr>
-                    <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">서비스명</th>
-                    <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">타입</th>
-                    <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
-                    <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">PID</th>
-                    <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">재시작</th>
-                    <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">CPU%</th>
-                    <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">메모리</th>
-                    <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">시작 시각</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('services.colName')}</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('services.colType')}</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('services.colStatus')}</th>
+                    <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('services.colPid')}</th>
+                    <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('services.colRestarts')}</th>
+                    <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('services.colCpu')}</th>
+                    <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('services.colMemory')}</th>
+                    <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('services.colStartedAt')}</th>
                     <th className="px-4 py-2"></th>
                   </tr>
                 </thead>
@@ -216,7 +218,7 @@ export function ServicesPage() {
                               onClick={() => setDeleteTarget({ serverId: svc.serverId, name: svc.name })}
                               className="px-2 py-0.5 text-xs bg-red-500 hover:bg-red-600 text-white rounded"
                             >
-                              삭제
+                              {t('common.delete')}
                             </button>
                           )}
                         </td>
@@ -232,7 +234,7 @@ export function ServicesPage() {
 
       {deleteTarget && (
         <DeleteConfirmModal
-          title={`"${deleteTarget.name}" 서비스를 삭제하시겠습니까?`}
+          title={`"${deleteTarget.name}" ${t('common.delete')}?`}
           onConfirm={handleDeleteConfirm}
           onCancel={() => setDeleteTarget(null)}
           loading={deleteLoading}

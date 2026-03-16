@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { authApi } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
+import { useTranslation } from 'react-i18next';
 
 // 로그인 페이지
 export function LoginPage() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -45,12 +47,12 @@ export function LoginPage() {
           await loadCaptcha();
         } else if (apiErr.retryAfter) {
           const minutes = Math.ceil(apiErr.retryAfter / 60);
-          setError(`너무 많은 로그인 시도입니다. ${minutes}분 후에 다시 시도해주세요.`);
+          setError(t('login.errorTooManyAttempts', { minutes }));
         } else {
           setError(err.message);
         }
       } else {
-        setError('로그인에 실패했습니다.');
+        setError(t('login.errorFailed'));
       }
     } finally {
       setLoading(false);
@@ -63,7 +65,7 @@ export function LoginPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 text-center">Ward</h1>
           <p className="mt-2 text-center text-sm text-gray-600">
-            서버 모니터링 대시보드에 로그인하세요
+            {t('login.subtitle')}
           </p>
         </div>
 
@@ -76,7 +78,7 @@ export function LoginPage() {
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              이메일
+              {t('login.email')}
             </label>
             <input
               id="email"
@@ -85,13 +87,13 @@ export function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="admin@example.com"
+              placeholder={t('login.emailPlaceholder')}
             />
           </div>
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              비밀번호
+              {t('login.password')}
             </label>
             <input
               id="password"
@@ -100,19 +102,19 @@ export function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="••••••••"
+              placeholder={t('login.passwordPlaceholder')}
             />
           </div>
 
           {captchaRequired && (
             <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
-              <p className="text-sm font-medium text-gray-700 mb-2">보안 인증</p>
+              <p className="text-sm font-medium text-gray-700 mb-2">{t('login.captchaTitle')}</p>
               <p className="text-lg font-bold text-gray-900 mb-3">{captchaQuestion}</p>
               <input
                 type="number"
                 value={captchaAnswer}
                 onChange={(e) => setCaptchaAnswer(e.target.value)}
-                placeholder="답을 입력하세요"
+                placeholder={t('login.captchaPlaceholder')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <button
@@ -120,13 +122,13 @@ export function LoginPage() {
                 onClick={loadCaptcha}
                 className="mt-2 text-sm text-blue-600 hover:underline"
               >
-                문제 새로 받기
+                {t('login.captchaRefresh')}
               </button>
             </div>
           )}
 
           <Button type="submit" disabled={loading} className="w-full">
-            {loading ? '로그인 중...' : '로그인'}
+            {loading ? t('login.submitting') : t('login.submit')}
           </Button>
         </form>
       </div>

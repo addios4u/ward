@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { Server } from '@/types';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -35,9 +36,11 @@ function MetricBar({ value, label }: { value: number; label: string }) {
 
 // 서버 카드 컴포넌트
 export function ServerCard({ server }: ServerCardProps) {
+  const { t } = useTranslation();
+
   const lastSeen = server.lastSeenAt
     ? new Date(server.lastSeenAt).toLocaleString('ko-KR')
-    : '없음';
+    : null;
 
   // 국가/도시 문자열 조합
   const location = [server.city, server.country].filter(Boolean).join(', ');
@@ -86,7 +89,7 @@ export function ServerCard({ server }: ServerCardProps) {
           <div className="mt-3 space-y-1">
             {server.publicIp && (
               <p className="text-xs text-gray-500">
-                <span className="text-gray-400">IP</span>{' '}
+                <span className="text-gray-400">{t('serverCard.ip')}</span>{' '}
                 <span className="font-mono">{server.publicIp}</span>
               </p>
             )}
@@ -99,12 +102,12 @@ export function ServerCard({ server }: ServerCardProps) {
           {server.latestMetrics && (
             <div className="mt-3 space-y-2">
               {server.latestMetrics.cpuUsage !== null && (
-                <MetricBar value={server.latestMetrics.cpuUsage} label="CPU" />
+                <MetricBar value={server.latestMetrics.cpuUsage} label={t('metrics.cpu')} />
               )}
               {memPercent !== null && (
                 <div>
                   <div className="flex justify-between text-xs text-gray-500 mb-0.5">
-                    <span>메모리</span>
+                    <span>{t('metrics.memory')}</span>
                     <span className={memPercent >= 80 ? 'text-red-500 font-medium' : ''}>
                       {toGB(server.latestMetrics.memUsed!)} / {toGB(server.latestMetrics.memTotal!)}
                     </span>
@@ -118,13 +121,13 @@ export function ServerCard({ server }: ServerCardProps) {
                 </div>
               )}
               {diskPercent !== null && (
-                <MetricBar value={diskPercent} label="디스크" />
+                <MetricBar value={diskPercent} label={t('metrics.disk')} />
               )}
             </div>
           )}
 
           <div className="mt-3 text-xs text-gray-400">
-            <span>마지막 확인: {lastSeen}</span>
+            <span>{t('serverCard.lastSeen', { time: lastSeen ?? t('serverCard.none') })}</span>
           </div>
         </CardBody>
       </Card>

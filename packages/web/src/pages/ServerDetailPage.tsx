@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { useMetrics } from '@/hooks/useMetrics';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { useTranslation } from 'react-i18next';
 import type { ServerStatusResponse, Log, LogLevel, WsMessage, WardService } from '@/types';
 
 function ServiceStatusDot({ status }: { status: string }) {
@@ -45,6 +46,7 @@ export function ServerDetailPage() {
   const serverId = id!;
   const [searchParams] = useSearchParams();
   const initialSource = searchParams.get('source') ?? '';
+  const { t } = useTranslation();
 
   const [statusData, setStatusData] = useState<ServerStatusResponse | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -140,7 +142,7 @@ export function ServerDetailPage() {
               <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                 {statusData.server.publicIp && (
                   <span className="text-xs text-gray-500">
-                    <span className="text-gray-400">IP</span>{' '}
+                    <span className="text-gray-400">{t('serverDetail.ip')}</span>{' '}
                     <span className="font-mono">{statusData.server.publicIp}</span>
                   </span>
                 )}
@@ -159,7 +161,7 @@ export function ServerDetailPage() {
         <div className="grid grid-cols-3 gap-3">
           <Card>
             <CardBody>
-              <p className="text-xs text-gray-500">CPU 사용률</p>
+              <p className="text-xs text-gray-500">{t('serverDetail.cpuUsage')}</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">
                 {latest?.cpuUsage !== null && latest?.cpuUsage !== undefined
                   ? `${latest.cpuUsage.toFixed(1)}%`
@@ -169,7 +171,7 @@ export function ServerDetailPage() {
           </Card>
           <Card>
             <CardBody>
-              <p className="text-xs text-gray-500">메모리 사용</p>
+              <p className="text-xs text-gray-500">{t('serverDetail.memoryUsage')}</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">
                 {latest ? formatGB(latest.memUsed) : '-'}
               </p>
@@ -178,7 +180,7 @@ export function ServerDetailPage() {
           </Card>
           <Card>
             <CardBody>
-              <p className="text-xs text-gray-500">부하 평균</p>
+              <p className="text-xs text-gray-500">{t('serverDetail.loadAvg')}</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">
                 {latest?.loadAvg ? latest.loadAvg[0]?.toFixed(2) : '-'}
               </p>
@@ -189,13 +191,13 @@ export function ServerDetailPage() {
         {/* 메트릭 차트 */}
         <Card>
           <CardHeader>
-            <h2 className="text-base font-semibold text-gray-900">성능 그래프</h2>
+            <h2 className="text-base font-semibold text-gray-900">{t('serverDetail.performanceGraph')}</h2>
           </CardHeader>
           <CardBody>
             {metricsLoading ? (
               <div className="h-48 flex items-center justify-center gap-2 text-gray-400 text-sm">
                 <Spinner size="sm" />
-                <span>메트릭 불러오는 중...</span>
+                <span>{t('serverDetail.metricsLoading')}</span>
               </div>
             ) : (
               <MetricsChart metrics={metrics} />
@@ -207,7 +209,7 @@ export function ServerDetailPage() {
         {services.length > 0 && (
           <Card>
             <CardHeader>
-              <h2 className="text-base font-semibold text-gray-900">서비스</h2>
+              <h2 className="text-base font-semibold text-gray-900">{t('serverDetail.services')}</h2>
             </CardHeader>
             <CardBody className="p-0">
               <div className="divide-y divide-gray-100">
@@ -230,7 +232,7 @@ export function ServerDetailPage() {
                         <span>MEM {(svc.memUsage / 1024 / 1024).toFixed(0)} MB</span>
                       )}
                       {svc.restartCount > 0 && (
-                        <span className="text-orange-500">재시작 {svc.restartCount}회</span>
+                        <span className="text-orange-500">↺ {svc.restartCount}</span>
                       )}
                       <ServiceStatusBadge status={svc.status} />
                     </div>
@@ -245,7 +247,7 @@ export function ServerDetailPage() {
       {/* 오른쪽: 로그 (항상 표시) */}
       <div className="w-[70%] min-w-0 flex flex-col min-h-0 bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
         <div className="px-4 py-2.5 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-          <h2 className="text-sm font-semibold text-gray-700">로그</h2>
+          <h2 className="text-sm font-semibold text-gray-700">{t('serverDetail.logs')}</h2>
           <div className="flex items-center gap-2">
             {logsLoading && <Spinner size="sm" />}
             {logsError && <span className="text-xs text-red-500">{logsError}</span>}

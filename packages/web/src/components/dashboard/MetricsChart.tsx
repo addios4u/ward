@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   LineChart,
   Line,
@@ -29,12 +30,13 @@ function formatChartData(metrics: Metric[]) {
 
 // CPU/메모리 라인 차트 컴포넌트
 export function MetricsChart({ metrics }: MetricsChartProps) {
+  const { t } = useTranslation();
   const data = formatChartData(metrics);
 
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
-        메트릭 데이터가 없습니다.
+        {t('metrics.noData')}
       </div>
     );
   }
@@ -57,11 +59,11 @@ export function MetricsChart({ metrics }: MetricsChartProps) {
           <Tooltip
             formatter={(value: number, name: string) => [
               `${value}%`,
-              name === 'cpu' ? 'CPU' : '메모리',
+              name === 'cpu' ? t('metrics.cpu') : t('metrics.memory'),
             ]}
           />
           <Legend
-            formatter={(value: string) => (value === 'cpu' ? 'CPU 사용률' : '메모리 사용률')}
+            formatter={(value: string) => (value === 'cpu' ? t('metrics.cpuUsage') : t('metrics.memoryUsage'))}
           />
           <Line
             type="monotone"

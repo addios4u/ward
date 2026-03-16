@@ -4,10 +4,13 @@ import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
+import { useTranslation } from 'react-i18next';
 import type { AdminUser } from '@/types';
 
 // 설정 페이지
 export function SettingsPage() {
+  const { t, i18n } = useTranslation();
+
   // 계정 관리 상태
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -56,7 +59,7 @@ export function SettingsPage() {
       setNewUserPassword('');
       fetchUsers();
     } catch (err: unknown) {
-      setAddUserError(err instanceof Error ? err.message : '계정 추가 실패');
+      setAddUserError(err instanceof Error ? err.message : t('settings.addAccountError'));
     } finally {
       setAddUserLoading(false);
     }
@@ -64,12 +67,12 @@ export function SettingsPage() {
 
   // 계정 삭제
   const handleDeleteUser = async (id: string, email: string) => {
-    if (!confirm(`"${email}" 계정을 삭제하시겠습니까?`)) return;
+    if (!confirm(`"${email}" ${t('settings.delete')}?`)) return;
     try {
       await usersApi.delete(id);
       fetchUsers();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : '계정 삭제 실패');
+      alert(err instanceof Error ? err.message : t('settings.deleteAccountError'));
     }
   };
 
@@ -84,7 +87,7 @@ export function SettingsPage() {
       setChangePwTarget(null);
       setNewPassword('');
     } catch (err: unknown) {
-      setChangePwError(err instanceof Error ? err.message : '비밀번호 변경 실패');
+      setChangePwError(err instanceof Error ? err.message : t('settings.changePasswordError'));
     } finally {
       setChangePwLoading(false);
     }
@@ -92,7 +95,7 @@ export function SettingsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">설정</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">{t('settings.title')}</h1>
 
       <div className="space-y-8 max-w-4xl">
 
@@ -100,9 +103,9 @@ export function SettingsPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900">계정 관리</h2>
+              <h2 className="text-base font-semibold text-gray-900">{t('settings.accountManagement')}</h2>
               <Button size="sm" onClick={() => setShowAddUserModal(true)}>
-                계정 추가
+                {t('settings.addAccount')}
               </Button>
             </div>
           </CardHeader>
@@ -110,7 +113,7 @@ export function SettingsPage() {
             {usersLoading ? (
               <div className="flex items-center justify-center h-24 gap-2 text-gray-400 text-sm">
                 <Spinner size="sm" />
-                <span>불러오는 중...</span>
+                <span>{t('settings.loading')}</span>
               </div>
             ) : usersError ? (
               <div className="p-4">
@@ -118,14 +121,14 @@ export function SettingsPage() {
               </div>
             ) : users.length === 0 ? (
               <div className="text-center py-8 text-gray-400 text-sm">
-                등록된 계정이 없습니다.
+                {t('settings.noAccounts')}
               </div>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">이메일</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">등록일</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('settings.colEmail')}</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('settings.colCreatedAt')}</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
@@ -134,7 +137,7 @@ export function SettingsPage() {
                     <tr key={user.id}>
                       <td className="px-4 py-3 font-medium text-gray-900">{user.email}</td>
                       <td className="px-4 py-3 text-gray-400 text-xs">
-                        {new Date(user.createdAt).toLocaleDateString('ko-KR')}
+                        {new Date(user.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -147,7 +150,7 @@ export function SettingsPage() {
                               setChangePwError(null);
                             }}
                           >
-                            비밀번호 변경
+                            {t('settings.changePassword')}
                           </Button>
                           <Button
                             size="sm"
@@ -155,7 +158,7 @@ export function SettingsPage() {
                             disabled={users.length === 1}
                             onClick={() => handleDeleteUser(user.id, user.email)}
                           >
-                            삭제
+                            {t('settings.delete')}
                           </Button>
                         </div>
                       </td>
@@ -170,20 +173,45 @@ export function SettingsPage() {
         {/* 섹션 2: 시스템 정보 */}
         <Card>
           <CardHeader>
-            <h2 className="text-base font-semibold text-gray-900">시스템 정보</h2>
+            <h2 className="text-base font-semibold text-gray-900">{t('settings.systemInfo')}</h2>
           </CardHeader>
           <CardBody>
             <div className="space-y-3 text-sm text-gray-600">
               <div className="flex justify-between">
-                <span className="text-gray-500">Ward 버전</span>
+                <span className="text-gray-500">{t('settings.wardVersion')}</span>
                 <span className="font-medium">{__APP_VERSION__}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">서버 URL</span>
+                <span className="text-gray-500">{t('settings.serverUrl')}</span>
                 <span className="font-mono text-xs">
                   {import.meta.env.VITE_SERVER_URL ?? 'http://localhost:4000'}
                 </span>
               </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* 섹션 3: 언어 설정 */}
+        <Card>
+          <CardHeader>
+            <h2 className="text-base font-semibold text-gray-900">{t('settings.language')}</h2>
+          </CardHeader>
+          <CardBody>
+            <p className="text-sm text-gray-500 mb-3">{t('settings.languageDesc')}</p>
+            <div className="flex gap-2">
+              {(['ko', 'en', 'ja', 'zh'] as const).map(lang => (
+                <button
+                  key={lang}
+                  onClick={() => i18n.changeLanguage(lang)}
+                  className={`px-4 py-2 rounded text-sm border transition-colors ${
+                    i18n.language === lang
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                  }`}
+                >
+                  {t(`languages.${lang}`)}
+                </button>
+              ))}
             </div>
           </CardBody>
         </Card>
@@ -193,26 +221,26 @@ export function SettingsPage() {
       {showAddUserModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">계정 추가</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('settings.addAccountTitle')}</h2>
             <form onSubmit={handleAddUser} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('settings.emailLabel')}</label>
                 <input
                   type="email"
                   value={newUserEmail}
                   onChange={(e) => setNewUserEmail(e.target.value)}
-                  placeholder="admin@example.com"
+                  placeholder={t('settings.emailPlaceholder')}
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('settings.passwordLabel')}</label>
                 <input
                   type="password"
                   value={newUserPassword}
                   onChange={(e) => setNewUserPassword(e.target.value)}
-                  placeholder="비밀번호 입력"
+                  placeholder={t('settings.passwordPlaceholder')}
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -230,10 +258,10 @@ export function SettingsPage() {
                   }}
                   disabled={addUserLoading}
                 >
-                  취소
+                  {t('common.cancel')}
                 </Button>
                 <Button type="submit" disabled={addUserLoading}>
-                  {addUserLoading ? '추가 중...' : '추가'}
+                  {addUserLoading ? t('settings.adding') : t('settings.add')}
                 </Button>
               </div>
             </form>
@@ -245,16 +273,16 @@ export function SettingsPage() {
       {changePwTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">비밀번호 변경</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">{t('settings.changePasswordTitle')}</h2>
             <p className="text-sm text-gray-500 mb-4">{changePwTarget.email}</p>
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">새 비밀번호</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('settings.newPassword')}</label>
                 <input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="새 비밀번호 입력"
+                  placeholder={t('settings.newPasswordPlaceholder')}
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -271,10 +299,10 @@ export function SettingsPage() {
                   }}
                   disabled={changePwLoading}
                 >
-                  취소
+                  {t('common.cancel')}
                 </Button>
                 <Button type="submit" disabled={changePwLoading}>
-                  {changePwLoading ? '변경 중...' : '변경'}
+                  {changePwLoading ? t('settings.changing') : t('settings.change')}
                 </Button>
               </div>
             </form>

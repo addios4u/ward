@@ -1,9 +1,11 @@
 import React from 'react';
 import { useLocation, Link, Outlet } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 // 대시보드 레이아웃 — 네비게이션 (인증은 App.tsx의 PrivateRoute가 처리)
 export function DashboardLayout() {
   const { pathname } = useLocation();
+  const { t } = useTranslation();
 
   const handleLogout = async () => {
     // 로그아웃 API 호출 후 전체 리로드로 이동
@@ -36,26 +38,26 @@ export function DashboardLayout() {
               to="/"
               className={`text-sm pb-1 ${isServers ? activeCls : inactiveCls}`}
             >
-              서버
+              {t('nav.servers')}
             </Link>
             <Link
               to="/services"
               className={`text-sm pb-1 ${isServices ? activeCls : inactiveCls}`}
             >
-              서비스
+              {t('nav.services')}
             </Link>
             <Link
               to="/settings"
               className={`text-sm pb-1 ${isSettings ? activeCls : inactiveCls}`}
             >
-              설정
+              {t('nav.settings')}
             </Link>
           </div>
           <button
             onClick={handleLogout}
             className="text-sm text-gray-500 hover:text-gray-700"
           >
-            로그아웃
+            {t('nav.logout')}
           </button>
         </div>
       </nav>

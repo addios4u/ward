@@ -1,4 +1,6 @@
+import './i18n';
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { LoginPage } from './pages/LoginPage';
@@ -10,7 +12,6 @@ import { SettingsPage } from './pages/SettingsPage';
 
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated';
 
-// /api/auth/me로 인증 상태 확인 (httpOnly 쿠키 지원)
 async function checkAuth(): Promise<boolean> {
   try {
     const res = await fetch('/api/auth/me', { credentials: 'include' });
@@ -20,12 +21,12 @@ async function checkAuth(): Promise<boolean> {
   }
 }
 
-// 인증 필요 라우트 래퍼
 function PrivateRoute({ auth, children }: { auth: AuthState; children: React.ReactNode }) {
+  const { t } = useTranslation();
   if (auth === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500">로딩 중...</div>
+        <div className="text-gray-500">{t('common.loading')}</div>
       </div>
     );
   }

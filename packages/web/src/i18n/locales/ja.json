@@ -1,0 +1,156 @@
+{
+  "nav": {
+    "servers": "サーバー",
+    "services": "サービス",
+    "settings": "設定",
+    "logout": "ログアウト"
+  },
+  "common": {
+    "loading": "読み込み中...",
+    "delete": "削除",
+    "cancel": "キャンセル",
+    "deleting": "削除中...",
+    "retry": "再試行",
+    "error": "エラー: {{message}}"
+  },
+  "login": {
+    "subtitle": "サーバー監視ダッシュボードにログイン",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "emailPlaceholder": "admin@example.com",
+    "passwordPlaceholder": "••••••••",
+    "captchaTitle": "セキュリティ認証",
+    "captchaPlaceholder": "答えを入力してください",
+    "captchaRefresh": "新しい問題を取得",
+    "submitting": "ログイン中...",
+    "submit": "ログイン",
+    "errorTooManyAttempts": "ログイン試行回数が多すぎます。{{minutes}}分後に再試行してください。",
+    "errorFailed": "ログインに失敗しました。"
+  },
+  "servers": {
+    "title": "サーバー一覧",
+    "count": "合計 {{count}} 台",
+    "emptyTitle": "登録されたサーバーがありません。",
+    "emptyDesc": "サーバーにwardエージェントをインストールすると、ここに自動的に表示されます。",
+    "ungrouped": "未分類",
+    "groupCount": "{{count}} 台",
+    "loadingMessage": "サーバー一覧を読み込み中...",
+    "deleteErrorMessage": "削除失敗",
+    "deleteConfirmDesc": "エージェントが再起動すると自動的に再登録されます。"
+  },
+  "services": {
+    "title": "サービス",
+    "count": "合計 {{count}} 件",
+    "emptyTitle": "登録されたサービスがありません。",
+    "emptyDesc": "エージェントがインストールされているサーバーで上記のコマンドでサービスを登録してください。",
+    "loadingMessage": "サービス一覧を読み込み中...",
+    "deleteErrorMessage": "削除失敗",
+    "colName": "サービス名",
+    "colType": "タイプ",
+    "colStatus": "ステータス",
+    "colPid": "PID",
+    "colRestarts": "再起動",
+    "colCpu": "CPU%",
+    "colMemory": "メモリ",
+    "colStartedAt": "開始時刻"
+  },
+  "serverDetail": {
+    "cpuUsage": "CPU使用率",
+    "memoryUsage": "メモリ使用量",
+    "loadAvg": "ロードアベレージ",
+    "performanceGraph": "パフォーマンスグラフ",
+    "metricsLoading": "メトリクスを読み込み中...",
+    "services": "サービス",
+    "logs": "ログ",
+    "ip": "IP",
+    "lastSeen": "最終確認: {{time}}"
+  },
+  "serviceDetail": {
+    "restart": "再起動",
+    "restarting": "再起動中...",
+    "status": "ステータス",
+    "pid": "PID",
+    "restartCount": "再起動回数",
+    "startedAt": "開始時刻",
+    "cpu": "CPU",
+    "memory": "メモリ",
+    "performanceGraph": "パフォーマンスグラフ",
+    "command": "コマンド",
+    "logFiles": "ログファイル",
+    "logs": "ログ",
+    "loadingMessage": "サービス情報を読み込み中...",
+    "notFound": "サービスが見つかりません。"
+  },
+  "settings": {
+    "title": "設定",
+    "accountManagement": "アカウント管理",
+    "addAccount": "アカウント追加",
+    "loading": "読み込み中...",
+    "noAccounts": "登録されたアカウントがありません。",
+    "colEmail": "メールアドレス",
+    "colCreatedAt": "登録日",
+    "changePassword": "パスワード変更",
+    "delete": "削除",
+    "deleteAccountError": "アカウント削除失敗",
+    "systemInfo": "システム情報",
+    "wardVersion": "Wardバージョン",
+    "serverUrl": "サーバーURL",
+    "addAccountTitle": "アカウント追加",
+    "emailLabel": "メールアドレス",
+    "emailPlaceholder": "admin@example.com",
+    "passwordLabel": "パスワード",
+    "passwordPlaceholder": "パスワードを入力",
+    "addAccountError": "アカウント追加失敗",
+    "adding": "追加中...",
+    "add": "追加",
+    "changePasswordTitle": "パスワード変更",
+    "newPassword": "新しいパスワード",
+    "newPasswordPlaceholder": "新しいパスワードを入力",
+    "changePasswordError": "パスワード変更失敗",
+    "changing": "変更中...",
+    "change": "変更",
+    "language": "言語",
+    "languageDesc": "ダッシュボードの表示言語を選択します。"
+  },
+  "status": {
+    "online": "オンライン",
+    "offline": "オフライン",
+    "unknown": "不明",
+    "running": "実行中",
+    "stopped": "停止",
+    "error": "エラー",
+    "unknownService": "不明"
+  },
+  "metrics": {
+    "cpu": "CPU",
+    "memory": "メモリ",
+    "disk": "ディスク",
+    "cpuUsage": "CPU使用率",
+    "memoryUsage": "メモリ使用率",
+    "noData": "メトリクスデータがありません。",
+    "collecting": "データ収集中..."
+  },
+  "logs": {
+    "all": "全て",
+    "empty": "ログがありません。"
+  },
+  "deleteModal": {
+    "cancel": "キャンセル",
+    "deleting": "削除中...",
+    "delete": "削除"
+  },
+  "spinner": {
+    "loading": "読み込み中"
+  },
+  "serverCard": {
+    "ip": "IP",
+    "lastSeen": "最終確認: {{time}}",
+    "none": "なし"
+  },
+  "languages": {
+    "ko": "한국어",
+    "en": "English",
+    "ja": "日本語",
+    "zh": "中文"
+  }
+}

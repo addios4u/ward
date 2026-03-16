@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Log, LogLevel } from '@/types';
 
 interface LogViewerProps {
@@ -16,6 +17,7 @@ const levelStyles: Record<string, string> = {
 
 // 로그 뷰어 컴포넌트
 export function LogViewer({ logs, onLevelChange }: LogViewerProps) {
+  const { t } = useTranslation();
   const [selectedLevel, setSelectedLevel] = useState<LogLevel | ''>('');
   const logContainerRef = useRef<HTMLDivElement>(null);
   const isUserScrollingRef = useRef(false);
@@ -54,7 +56,7 @@ export function LogViewer({ logs, onLevelChange }: LogViewerProps) {
                 : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
             }`}
           >
-            {level === '' ? '전체' : level.toUpperCase()}
+            {level === '' ? t('logs.all') : level.toUpperCase()}
           </button>
         ))}
       </div>
@@ -66,7 +68,7 @@ export function LogViewer({ logs, onLevelChange }: LogViewerProps) {
         className="flex-1 overflow-y-auto bg-gray-900 rounded-lg mx-3 mb-3 p-4 font-mono text-xs"
       >
         {logs.length === 0 ? (
-          <div className="text-gray-500 text-center py-4">로그가 없습니다.</div>
+          <div className="text-gray-500 text-center py-4">{t('logs.empty')}</div>
         ) : (
           logs.map((log) => (
             <div key={log.id} className="flex gap-2 mb-1 leading-5">
