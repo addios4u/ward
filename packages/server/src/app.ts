@@ -119,16 +119,19 @@ export function createApp(): express.Application {
   });
 
   // 라우터
+  // auth/agent는 각자의 limiter 적용 후 응답 → 이후 apiLimiter 미도달
+  // apiLimiter는 /api 전체에 한 번만 적용 (중복 카운팅 방지)
   app.use('/health', healthRouter);
   app.use('/api/auth/login', loginLimiter);
   app.use('/api/auth', authRouter);
   app.use('/api/agent', agentLimiter, agentRouter);
-  app.use('/api/servers', apiLimiter, serversRouter);
-  app.use('/api/servers', apiLimiter, metricsRouter);
-  app.use('/api/servers', apiLimiter, logsRouter);
-  app.use('/api/servers', apiLimiter, serverServicesRouter);
-  app.use('/api/services', apiLimiter, servicesRouter);
-  app.use('/api/users', apiLimiter, usersRouter);
+  app.use('/api', apiLimiter);
+  app.use('/api/servers', serversRouter);
+  app.use('/api/servers', metricsRouter);
+  app.use('/api/servers', logsRouter);
+  app.use('/api/servers', serverServicesRouter);
+  app.use('/api/services', servicesRouter);
+  app.use('/api/users', usersRouter);
 
   // 프로덕션: web/dist 정적 파일 서빙
   // 개발: Vite dev server가 별도로 실행되므로 스킵
