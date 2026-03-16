@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Ward 에이전트 CLI 진입점
 import { Command } from 'commander';
+import fs from 'fs';
+import path from 'path';
 import { start } from './cli/start.js';
 import { stop } from './cli/stop.js';
 import { status } from './cli/status.js';
@@ -9,12 +11,15 @@ import { serviceAdd, serviceRemove, serviceList, serviceRestart } from './cli/se
 import { pipe } from './cli/pipe.js';
 import { loadConfig } from './config/AgentConfig.js';
 
+const pkgPath = path.resolve(__dirname, '../package.json');
+const { version } = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')) as { version: string };
+
 const program = new Command();
 
 program
   .name('ward')
   .description('Ward 서버 모니터링 에이전트')
-  .version('0.1.0');
+  .version(version);
 
 // ward start [serverUrl] - 에이전트 시작
 program
