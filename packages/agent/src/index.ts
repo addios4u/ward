@@ -5,7 +5,7 @@ import { start } from './cli/start.js';
 import { stop } from './cli/stop.js';
 import { status } from './cli/status.js';
 import { configShow } from './cli/config.js';
-import { serviceAdd, serviceRemove, serviceList } from './cli/service.js';
+import { serviceAdd, serviceRemove, serviceList, serviceRestart } from './cli/service.js';
 import { pipe } from './cli/pipe.js';
 import { loadConfig } from './config/AgentConfig.js';
 
@@ -93,6 +93,13 @@ serviceCmd
   .description('등록된 서비스 목록')
   .action(() => {
     serviceList();
+  });
+
+serviceCmd
+  .command('restart <name>')
+  .description('서비스를 재시작합니다')
+  .action((name: string) => {
+    serviceRestart(name);
   });
 
 // ward pipe <name> - stdin을 로그로 전송

@@ -1,4 +1,6 @@
 // 에이전트 데몬 프로세스 - 백그라운드에서 실행
+import * as fs from 'fs';
+import * as path from 'path';
 import * as os from 'os';
 import pidusage from 'pidusage';
 import { loadConfig, loadState } from './config/AgentConfig.js';
@@ -250,6 +252,21 @@ export async function startDaemon(): Promise<void> {
   await sendHeartbeat();
   await syncServicesToServer();
 }
+
+// SIGUSR2: ward service restart <name> 요청 처리
+process.on('SIGUSR2', () => {
+  const restartRequestPath = path.join(os.homedir(), '.ward', 'restart-request');
+  try {
+    if (!fs.existsSync(restartRequestPath)) return;
+    const name = fs.readFileSync(restartRequestPath, 'utf-8').trim();
+    fs.unlinkSync(restartRequestPath);
+    if (!name) return;
+    console.log(`서비스 재시작 요청: ${name}`);
+    serviceWatcher?.restart(name);
+  } catch (err) {
+    console.error('서비스 재시작 요청 처리 오류:', err);
+  }
+});
 
 // SIGUSR1: ward service add/remove 후 설정 재로드
 process.on('SIGUSR1', () => {

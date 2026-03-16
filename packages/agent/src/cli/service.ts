@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import {
   loadConfig,
   loadState,
@@ -6,6 +7,7 @@ import {
   addService,
   removeService,
   getPidPath,
+  getWardDir,
   type AgentConfig,
   type ServiceConfig,
 } from '../config/AgentConfig.js';
@@ -134,6 +136,48 @@ export async function serviceRemove(name: string): Promise<void> {
   }
 
   signalDaemon();
+}
+
+// ward service restart <name>
+export function serviceRestart(name: string): void {
+  const config = loadConfig();
+  if (!config) {
+    console.error('설정 파일이 없습니다. ward start 먼저 실행하세요.');
+    process.exit(1);
+    return;
+  }
+
+  const exists = config.services.some(s => s.name === name);
+  if (!exists) {
+    console.error(`서비스 "${name}"을 찾을 수 없습니다.`);
+    process.exit(1);
+    return;
+  }
+
+  const pidPath = getPidPath();
+  if (!fs.existsSync(pidPath)) {
+    console.log('서비스가 실행 중이지 않습니다.');
+    return;
+  }
+
+  const pidStr = fs.readFileSync(pidPath, 'utf-8').trim();
+  const pid = parseInt(pidStr, 10);
+  if (isNaN(pid)) {
+    console.log('서비스가 실행 중이지 않습니다.');
+    return;
+  }
+
+  // 재시작 요청 파일 작성 후 SIGUSR2 전송
+  const restartRequestPath = path.join(getWardDir(), 'restart-request');
+  fs.writeFileSync(restartRequestPath, name, 'utf-8');
+
+  try {
+    process.kill(pid, 'SIGUSR2');
+    console.log(`서비스 "${name}" 재시작 요청을 전송했습니다.`);
+  } catch {
+    console.log('서비스가 실행 중이지 않습니다.');
+    fs.unlinkSync(restartRequestPath);
+  }
 }
 
 // ward service list
