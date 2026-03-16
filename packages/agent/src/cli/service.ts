@@ -1,6 +1,7 @@
 import fs from 'fs';
 import {
   loadConfig,
+  loadState,
   saveConfig,
   addService,
   removeService,
@@ -8,6 +9,7 @@ import {
   type AgentConfig,
   type ServiceConfig,
 } from '../config/AgentConfig.js';
+import { HttpClient } from '../transport/HttpClient.js';
 
 // 실행 중인 데몬에 SIGUSR1 시그널 전송 (설정 재로드)
 function signalDaemon(): void {
@@ -68,11 +70,27 @@ export async function serviceAdd(
   saveConfig(newConfig);
 
   console.log(`서비스 "${name}" (${service.method}) 등록 완료.`);
+
+  // 서버에 서비스 목록 동기화 시도
+  const state = loadState();
+  if (state) {
+    const client = new HttpClient({ serverUrl: state.serverUrl, serverId: state.serverId });
+    const allServices = newConfig.services.map(svc => ({
+      name: svc.name,
+      type: svc.method,
+      config: svc as object,
+      status: 'unknown' as const,
+    }));
+    await client.syncServices(allServices).catch(() => {
+      // 서버 미연결 시 무시 (데몬이 시작될 때 sync됨)
+    });
+  }
+
   signalDaemon();
 }
 
 // ward service remove <name>
-export function serviceRemove(name: string): void {
+export async function serviceRemove(name: string): Promise<void> {
   const config = loadConfig();
   if (!config) {
     console.error('설정 파일이 없습니다. ward start 먼저 실행하세요.');
@@ -90,6 +108,20 @@ export function serviceRemove(name: string): void {
   const newConfig = removeService(config, name);
   saveConfig(newConfig);
   console.log(`서비스 "${name}" 제거 완료.`);
+
+  // 서버에 서비스 목록 동기화 시도
+  const state = loadState();
+  if (state) {
+    const client = new HttpClient({ serverUrl: state.serverUrl, serverId: state.serverId });
+    const remainingServices = newConfig.services.map(svc => ({
+      name: svc.name,
+      type: svc.method,
+      config: svc as object,
+      status: 'unknown' as const,
+    }));
+    await client.syncServices(remainingServices).catch(() => {});
+  }
+
   signalDaemon();
 }
 

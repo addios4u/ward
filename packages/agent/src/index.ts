@@ -83,8 +83,8 @@ serviceCmd
 serviceCmd
   .command('remove <name>')
   .description('서비스 제거')
-  .action((name: string) => {
-    serviceRemove(name);
+  .action(async (name: string) => {
+    await serviceRemove(name);
   });
 
 serviceCmd

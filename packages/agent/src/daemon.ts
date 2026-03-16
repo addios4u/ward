@@ -82,14 +82,51 @@ async function collectAndSendMetrics(): Promise<void> {
   }
 }
 
+// 서비스 목록을 서버에 동기화
+async function syncServicesToServer(): Promise<void> {
+  const config = loadConfig();
+  const services = config?.services ?? [];
+
+  const servicePayloads = services.map(svc => {
+    const statusInfo = serviceWatcher?.getServiceStatus(svc.name) ?? { status: 'unknown' as const, restartCount: 0 };
+    return {
+      name: svc.name,
+      type: svc.method,
+      config: svc as object,
+      status: statusInfo.status,
+      pid: statusInfo.pid,
+      restartCount: statusInfo.restartCount,
+      startedAt: statusInfo.startedAt?.toISOString(),
+    };
+  });
+
+  const result = await httpClient.syncServices(servicePayloads);
+  if (!result.success) {
+    console.error(`서비스 동기화 실패: ${result.error}`);
+  }
+}
+
 // Heartbeat 전송
 async function sendHeartbeat(): Promise<SendResult> {
   try {
     const ipInfo = await ipCollector.collect();
+    const config = loadConfig();
+    const services = (config?.services ?? []).map(svc => {
+      const statusInfo = serviceWatcher?.getServiceStatus(svc.name) ?? { status: 'unknown' as const, restartCount: 0 };
+      return {
+        name: svc.name,
+        status: statusInfo.status,
+        pid: statusInfo.pid,
+        restartCount: statusInfo.restartCount,
+        startedAt: statusInfo.startedAt?.toISOString(),
+      };
+    });
+
     const payload = {
       sentAt: new Date().toISOString(),
       hostname: currentHostname,
       ipInfo,
+      services: services.length > 0 ? services : undefined,
     };
 
     const result = await httpClient.sendHeartbeat(payload);
@@ -148,6 +185,11 @@ export async function startDaemon(): Promise<void> {
     logForwarder.addLog(source, line);
   });
 
+  // 서비스 상태 변경 로그 출력
+  serviceWatcher.on('status', (name: string, status: string, pid?: number, restartCount?: number, _startedAt?: Date) => {
+    console.log(`서비스 상태 변경: ${name} → ${status}${pid ? ` (PID: ${pid})` : ''}${restartCount ? ` (재시작: ${restartCount}회)` : ''}`);
+  });
+
   // LogForwarder 시작
   logForwarder.start();
 
@@ -160,6 +202,7 @@ export async function startDaemon(): Promise<void> {
   // 즉시 첫 번째 수집 실행
   await collectAndSendMetrics();
   await sendHeartbeat();
+  await syncServicesToServer();
 }
 
 // SIGUSR1: ward service add/remove 후 설정 재로드
@@ -173,6 +216,7 @@ process.on('SIGUSR1', () => {
     serviceWatcher?.watch(svc);
   }
   console.log(`서비스 재로드 완료: ${services.map(s => s.name).join(', ') || '(없음)'}`);
+  syncServicesToServer().catch(err => console.error('서비스 동기화 오류:', err));
 });
 
 // 종료 시그널 처리

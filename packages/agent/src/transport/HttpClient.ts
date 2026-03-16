@@ -153,4 +153,17 @@ export class HttpClient {
   async sendHeartbeat(data: unknown): Promise<SendResult> {
     return this.post('/api/agent/heartbeat', data);
   }
+
+  // 서비스 목록 동기화
+  async syncServices(services: Array<{
+    name: string;
+    type: string;
+    config: object;
+    status: string;
+    pid?: number;
+    restartCount?: number;
+    startedAt?: string;
+  }>): Promise<SendResult> {
+    return this.post('/api/agent/services/sync', { services });
+  }
 }
