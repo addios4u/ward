@@ -1,0 +1,35 @@
+{
+  "server": {
+    "url": "http://ward-server:4000",
+    "groupName": "production"
+  },
+  "metrics": { "interval": 30 },
+  "services": [
+    {
+      "name": "nginx-access",
+      "method": "file",
+      "paths": [
+        "/var/log/nginx/access.log",
+        "/var/log/nginx/site1-access.log"
+      ]
+    },
+    {
+      "name": "nginx-error",
+      "method": "file",
+      "paths": [
+        "/var/log/nginx/error.log",
+        "/var/log/nginx/site1-error.log"
+      ]
+    },
+    {
+      "name": "apache-access",
+      "method": "file",
+      "paths": ["/var/log/apache2/access.log"]
+    },
+    {
+      "name": "apache-error",
+      "method": "file",
+      "paths": ["/var/log/apache2/error.log"]
+    }
+  ]
+}

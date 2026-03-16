@@ -1,0 +1,24 @@
+{
+  "server": {
+    "url": "http://ward-server:4000",
+    "groupName": "production"
+  },
+  "metrics": { "interval": 30 },
+  "services": [
+    {
+      "name": "web-container",
+      "method": "docker",
+      "container": "my-web-app"
+    },
+    {
+      "name": "api-container",
+      "method": "docker",
+      "container": "my-api-server"
+    },
+    {
+      "name": "worker-container",
+      "method": "docker",
+      "container": "my-worker"
+    }
+  ]
+}

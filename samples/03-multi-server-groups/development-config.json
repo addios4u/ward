@@ -1,0 +1,10 @@
+{
+  "server": {
+    "url": "http://ward-server:4000",
+    "groupName": "development"
+  },
+  "metrics": {
+    "interval": 10
+  },
+  "services": []
+}

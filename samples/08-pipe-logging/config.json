@@ -1,0 +1,24 @@
+{
+  "server": {
+    "url": "http://ward-server:4000",
+    "groupName": "production"
+  },
+  "metrics": { "interval": 30 },
+  "services": [
+    {
+      "name": "syslog-errors",
+      "method": "pipe",
+      "command": "tail -f /var/log/syslog | grep -i error"
+    },
+    {
+      "name": "auth-log",
+      "method": "pipe",
+      "command": "tail -f /var/log/auth.log | grep -v 'CRON'"
+    },
+    {
+      "name": "app-combined",
+      "method": "pipe",
+      "command": "tail -f /app/logs/*.log | grep -E '(ERROR|WARN)'"
+    }
+  ]
+}

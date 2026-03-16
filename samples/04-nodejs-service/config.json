@@ -1,0 +1,23 @@
+{
+  "server": {
+    "url": "http://ward-server:4000",
+    "groupName": "production"
+  },
+  "metrics": { "interval": 30 },
+  "services": [
+    {
+      "name": "api-server",
+      "method": "exec",
+      "command": "node /app/dist/index.js",
+      "restartDelay": 3000,
+      "maxMemBytes": 536870912
+    },
+    {
+      "name": "worker",
+      "method": "exec",
+      "command": "node /app/dist/worker.js",
+      "restartDelay": 5000,
+      "maxMemBytes": 268435456
+    }
+  ]
+}

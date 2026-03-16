@@ -1,0 +1,10 @@
+{
+  "server": {
+    "url": "http://ward-server:4000",
+    "groupName": "staging"
+  },
+  "metrics": {
+    "interval": 60
+  },
+  "services": []
+}

@@ -1,0 +1,9 @@
+{
+  "server": {
+    "url": "http://ward-server:4000"
+  },
+  "metrics": {
+    "interval": 30
+  },
+  "services": []
+}

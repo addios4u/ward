@@ -1,0 +1,29 @@
+{
+  "server": {
+    "url": "http://ward-server:4000",
+    "groupName": "production"
+  },
+  "metrics": { "interval": 30 },
+  "services": [
+    {
+      "name": "nginx",
+      "method": "journal",
+      "unit": "nginx.service"
+    },
+    {
+      "name": "postgresql",
+      "method": "journal",
+      "unit": "postgresql.service"
+    },
+    {
+      "name": "redis",
+      "method": "journal",
+      "unit": "redis-server.service"
+    },
+    {
+      "name": "my-app",
+      "method": "journal",
+      "unit": "my-app.service"
+    }
+  ]
+}
