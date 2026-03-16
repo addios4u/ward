@@ -6,74 +6,42 @@ import { sessionAuth } from '../middleware/sessionAuth.js';
 const router: Router = Router();
 router.use(sessionAuth);
 
-// GET /api/services — 모든 서버의 최신 프로세스 목록 (서버별 그룹)
+// GET /api/services — 모든 서버의 등록 서비스 목록 (flat)
 router.get('/', async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const db = getDb();
 
-    // 서버 목록 조회
-    const servers = await db
+    const rows = await db
       .select({
-        id: schema.servers.id,
-        name: schema.servers.name,
-        hostname: schema.servers.hostname,
-        status: schema.servers.status,
+        id: schema.services.id,
+        serverId: schema.services.serverId,
+        serverName: schema.servers.name,
+        serverHostname: schema.servers.hostname,
+        serverStatus: schema.servers.status,
+        name: schema.services.name,
+        type: schema.services.type,
+        config: schema.services.config,
+        status: schema.services.status,
+        pid: schema.services.pid,
+        restartCount: schema.services.restartCount,
+        startedAt: schema.services.startedAt,
+        updatedAt: schema.services.updatedAt,
+        cpuUsage: schema.services.cpuUsage,
+        memUsage: schema.services.memUsage,
       })
-      .from(schema.servers)
-      .orderBy(schema.servers.createdAt);
+      .from(schema.services)
+      .innerJoin(schema.servers, eq(schema.services.serverId, schema.servers.id))
+      .orderBy(schema.servers.name, schema.services.name);
 
-    // 각 서버의 최신 프로세스 조회
-    const services = await Promise.all(
-      servers.map(async (server) => {
-        // 최신 collectedAt 조회
-        const [latest] = await db
-          .select({ collectedAt: schema.processes.collectedAt })
-          .from(schema.processes)
-          .where(eq(schema.processes.serverId, server.id))
-          .orderBy(desc(schema.processes.collectedAt))
-          .limit(1);
-
-        if (!latest) {
-          return {
-            serverId: server.id,
-            serverName: server.name,
-            serverHostname: server.hostname,
-            serverStatus: server.status,
-            processes: [],
-          };
-        }
-
-        // 해당 collectedAt의 프로세스 목록 조회
-        const processes = await db
-          .select()
-          .from(schema.processes)
-          .where(
-            and(
-              eq(schema.processes.serverId, server.id),
-              eq(schema.processes.collectedAt, latest.collectedAt)
-            )
-          );
-
-        return {
-          serverId: server.id,
-          serverName: server.name,
-          serverHostname: server.hostname,
-          serverStatus: server.status,
-          processes: processes.map((p) => ({
-            id: p.id,
-            serverId: p.serverId,
-            pid: p.pid,
-            name: p.name,
-            cpuUsage: p.cpuUsage,
-            memUsage: p.memUsage,
-            status: p.status ?? 'unknown',
-            collectedAt: p.collectedAt,
-          })),
-        };
-      })
-    );
-
-    res.json({ services });
+    res.json({
+      services: rows.map(svc => ({
+        ...svc,
+        startedAt: svc.startedAt?.toISOString() ?? null,
+        updatedAt: svc.updatedAt.toISOString(),
+        cpuUsage: svc.cpuUsage ?? null,
+        memUsage: svc.memUsage ?? null,
+      })),
+    });
   } catch (err) {
     next(err);
   }
