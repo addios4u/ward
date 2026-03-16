@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
-import { serversApi } from '@/lib/api';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { serversApi, servicesApi } from '@/lib/api';
 import { MetricsChart } from '@/components/dashboard/MetricsChart';
 import { LogViewer } from '@/components/dashboard/LogViewer';
 import { Badge } from '@/components/ui/Badge';
@@ -9,7 +9,31 @@ import { Spinner } from '@/components/ui/Spinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { useMetrics } from '@/hooks/useMetrics';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import type { ServerStatusResponse, Log, LogLevel, WsMessage } from '@/types';
+import type { ServerStatusResponse, Log, LogLevel, WsMessage, WardService } from '@/types';
+
+function ServiceStatusDot({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    running: 'bg-green-500',
+    stopped: 'bg-gray-400',
+    error: 'bg-red-500',
+    unknown: 'bg-yellow-400',
+  };
+  return <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${colors[status] ?? colors['unknown']}`} />;
+}
+
+function ServiceStatusBadge({ status }: { status: string }) {
+  const classes: Record<string, string> = {
+    running: 'bg-green-100 text-green-700',
+    stopped: 'bg-gray-100 text-gray-600',
+    error: 'bg-red-100 text-red-700',
+    unknown: 'bg-yellow-100 text-yellow-700',
+  };
+  return (
+    <span className={`px-2 py-0.5 rounded text-xs font-medium ${classes[status] ?? classes['unknown']}`}>
+      {status}
+    </span>
+  );
+}
 
 function formatGB(bytes: number | null): string {
   if (bytes === null) return '-';
@@ -25,6 +49,11 @@ export function ServerDetailPage() {
   const [statusData, setStatusData] = useState<ServerStatusResponse | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const { metrics, loading: metricsLoading } = useMetrics(serverId);
+
+  const [services, setServices] = useState<WardService[]>([]);
+  const loadServices = useCallback(() => {
+    servicesApi.listByServer(serverId).then((res) => setServices(res.services)).catch(() => {});
+  }, [serverId]);
 
   const [logs, setLogs] = useState<Log[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
@@ -44,6 +73,12 @@ export function ServerDetailPage() {
     const timer = setInterval(loadStatus, 30000);
     return () => clearInterval(timer);
   }, [loadStatus]);
+
+  useEffect(() => {
+    loadServices();
+    const timer = setInterval(loadServices, 30000);
+    return () => clearInterval(timer);
+  }, [loadServices]);
 
   const loadLogs = useCallback(
     (level: LogLevel | '', source: string) => {
@@ -167,6 +202,44 @@ export function ServerDetailPage() {
             )}
           </CardBody>
         </Card>
+
+        {/* 관련 서비스 목록 */}
+        {services.length > 0 && (
+          <Card>
+            <CardHeader>
+              <h2 className="text-base font-semibold text-gray-900">서비스</h2>
+            </CardHeader>
+            <CardBody className="p-0">
+              <div className="divide-y divide-gray-100">
+                {services.map((svc) => (
+                  <Link
+                    key={svc.id}
+                    to={`/services/${svc.serverId}/${encodeURIComponent(svc.name)}`}
+                    className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ServiceStatusDot status={svc.status} />
+                      <span className="text-sm font-medium text-gray-800 truncate">{svc.name}</span>
+                      <span className="text-xs font-mono text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">{svc.type}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-gray-500 ml-2 flex-shrink-0">
+                      {svc.cpuUsage !== null && (
+                        <span>CPU {svc.cpuUsage.toFixed(1)}%</span>
+                      )}
+                      {svc.memUsage !== null && (
+                        <span>MEM {(svc.memUsage / 1024 / 1024).toFixed(0)} MB</span>
+                      )}
+                      {svc.restartCount > 0 && (
+                        <span className="text-orange-500">재시작 {svc.restartCount}회</span>
+                      )}
+                      <ServiceStatusBadge status={svc.status} />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+        )}
       </div>
 
       {/* 오른쪽: 로그 (항상 표시) */}
