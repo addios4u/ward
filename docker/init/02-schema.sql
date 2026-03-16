@@ -16,7 +16,10 @@ CREATE TABLE servers (
   isp          VARCHAR(255),
   status       server_status NOT NULL DEFAULT 'unknown',
   last_seen_at TIMESTAMP,
-  created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+  created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+  os_name      VARCHAR(100),   -- 운영체제명 (예: Ubuntu, CentOS)
+  os_version   VARCHAR(100),   -- 운영체제 버전 (예: 22.04)
+  arch         VARCHAR(50)     -- CPU 아키텍처 (예: x64, arm64)
 );
 
 -- 관리자 계정
@@ -51,6 +54,7 @@ CREATE TABLE processes (
   name         VARCHAR(255) NOT NULL,
   cpu_usage    DOUBLE PRECISION,
   mem_usage    BIGINT,
+  status       VARCHAR(50),    -- 프로세스 상태 (예: running, sleeping)
   PRIMARY KEY (id, collected_at)
 );
 
