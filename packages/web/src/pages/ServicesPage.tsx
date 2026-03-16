@@ -206,10 +206,10 @@ export function ServicesPage() {
                         <td className="px-4 py-3 text-right text-gray-600 font-mono text-xs">{svc.pid ?? '-'}</td>
                         <td className="px-4 py-3 text-right text-gray-600">{svc.restartCount}</td>
                         <td className="px-4 py-3 text-right text-gray-600 font-mono text-xs">
-                          {svc.cpuUsage !== null ? `${svc.cpuUsage.toFixed(1)}%` : '-'}
+                          {svc.cpuUsage != null ? `${svc.cpuUsage.toFixed(1)}%` : '-'}
                         </td>
                         <td className="px-4 py-3 text-right text-gray-600 font-mono text-xs">
-                          {svc.memUsage !== null ? `${(svc.memUsage / 1024 / 1024).toFixed(1)} MB` : '-'}
+                          {svc.memUsage != null ? `${(svc.memUsage / 1024 / 1024).toFixed(1)} MB` : '-'}
                         </td>
                         <td className="px-4 py-3 text-right text-gray-400 text-xs">{formatUptime(svc.startedAt)}</td>
                         <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
