@@ -1,5 +1,5 @@
 import { getDb, schema } from '../db/index.js';
-import { lt, eq } from 'drizzle-orm';
+import { lt, eq, and } from 'drizzle-orm';
 import { safePublish, REDIS_CHANNELS } from '../lib/redis.js';
 
 /**
@@ -43,7 +43,7 @@ export class HeartbeatMonitor {
     const updated = await db
       .update(schema.servers)
       .set({ status: 'offline' })
-      .where(lt(schema.servers.lastSeenAt, threshold))
+      .where(and(eq(schema.servers.status, 'online'), lt(schema.servers.lastSeenAt, threshold)))
       .returning({ id: schema.servers.id });
 
     if (updated.length > 0) {

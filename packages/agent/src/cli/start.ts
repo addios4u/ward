@@ -5,6 +5,7 @@ import { spawn } from 'child_process';
 import si from 'systeminformation';
 import {
   loadConfig,
+  loadState,
   saveConfig,
   saveState,
   getWardDir,
@@ -92,18 +93,25 @@ export async function start(serverUrl: string, options: { name?: string } = {}):
     fs.mkdirSync(wardDir, { recursive: true });
   }
 
-  // 4. 자동 등록
+  // 4. 자동 등록 (기존 state에 유효한 serverId가 있으면 재등록 생략)
   const hostname = os.hostname();
-  const registerResult = await registerWithServer(normalizedUrl, hostname, options.name);
+  const existingState = loadState();
+  let serverId = existingState?.serverId ?? '';
 
-  if (!registerResult.success) {
-    console.warn(`서버 등록 실패: ${registerResult.error}`);
-    console.warn('데몬을 시작하고 서버가 올라오면 자동으로 재시도합니다.');
+  if (!serverId) {
+    const registerResult = await registerWithServer(normalizedUrl, hostname, options.name);
+
+    if (!registerResult.success) {
+      console.warn(`서버 등록 실패: ${registerResult.error}`);
+      console.warn('데몬을 시작하고 서버가 올라오면 자동으로 재시도합니다.');
+    } else {
+      serverId = registerResult.serverId ?? '';
+    }
   }
 
   // 5. state 저장
   saveState({
-    serverId: registerResult.serverId ?? '',
+    serverId,
     serverUrl: normalizedUrl,
     hostname,
   });
