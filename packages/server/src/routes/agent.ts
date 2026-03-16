@@ -40,7 +40,6 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
         .update(schema.servers)
         .set({
           groupName: groupName ?? null,
-          status: 'unknown',
           ...(osName !== undefined && { osName }),
           ...(osVersion !== undefined && { osVersion }),
           ...(arch !== undefined && { arch }),
