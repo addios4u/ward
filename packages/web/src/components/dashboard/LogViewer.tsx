@@ -43,7 +43,7 @@ export function LogViewer({ logs, onLevelChange }: LogViewerProps) {
   return (
     <div className="flex flex-col h-full">
       {/* 레벨 필터 */}
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-2 px-3 pt-3 pb-2">
         {(['', 'info', 'warn', 'error', 'debug'] as const).map((level) => (
           <button
             key={level}
@@ -63,7 +63,7 @@ export function LogViewer({ logs, onLevelChange }: LogViewerProps) {
       <div
         ref={logContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto bg-gray-900 rounded-lg p-4 font-mono text-xs"
+        className="flex-1 overflow-y-auto bg-gray-900 rounded-lg mx-3 mb-3 p-4 font-mono text-xs"
       >
         {logs.length === 0 ? (
           <div className="text-gray-500 text-center py-4">로그가 없습니다.</div>
