@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { servicesApi } from '@/lib/api';
 import { Spinner } from '@/components/ui/Spinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { LogViewer } from '@/components/dashboard/LogViewer';
-import type { WardService, Log, LogLevel } from '@/types';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import type { WardService, Log, LogLevel, WsMessage } from '@/types';
 
 function ServiceStatusDot({ status }: { status: string }) {
   const colors: Record<string, string> = {
@@ -85,11 +86,29 @@ export function ServiceDetailPage() {
     fetchService();
   }, [fetchService]);
 
+  // 초기 로드 + 60초 fallback 폴링 (WS가 주 업데이트 채널)
   useEffect(() => {
     fetchLogs();
-    const timer = setInterval(fetchLogs, 10_000);
+    const timer = setInterval(fetchLogs, 60_000);
     return () => clearInterval(timer);
   }, [fetchLogs]);
+
+  // WebSocket 실시간 로그 수신 (해당 서비스 source만 필터링)
+  const decodedNameRef = useRef(decodedName);
+  const levelFilterRef = useRef(levelFilter);
+  useEffect(() => { decodedNameRef.current = decodedName; }, [decodedName]);
+  useEffect(() => { levelFilterRef.current = levelFilter; }, [levelFilter]);
+
+  const handleMessage = useCallback((msg: WsMessage) => {
+    if (msg.type === 'logs') {
+      const newLog = msg.data as Log;
+      if (newLog.source !== decodedNameRef.current) return;
+      if (levelFilterRef.current && newLog.level !== levelFilterRef.current) return;
+      setLogs((prev) => [...prev.slice(-199), newLog]);
+    }
+  }, []);
+
+  useWebSocket(handleMessage, serverId);
 
   if (loading) {
     return (
