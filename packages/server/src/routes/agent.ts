@@ -231,6 +231,8 @@ router.post('/heartbeat', async (req: Request, res: Response, next: NextFunction
         pid?: number;
         restartCount?: number;
         startedAt?: string;
+        cpuUsage?: number;
+        memUsage?: number;
       }>;
     };
 
@@ -260,6 +262,8 @@ router.post('/heartbeat', async (req: Request, res: Response, next: NextFunction
             restartCount: svc.restartCount ?? 0,
             startedAt: svc.startedAt ? new Date(svc.startedAt) : null,
             updatedAt: new Date(),
+            cpuUsage: svc.cpuUsage ?? null,
+            memUsage: svc.memUsage ?? null,
           })
           .where(
             and(
@@ -279,7 +283,24 @@ router.post('/heartbeat', async (req: Request, res: Response, next: NextFunction
       JSON.stringify({ serverId: server.id, status: 'online' })
     );
 
-    res.json({ ok: true, serverId: server.id });
+    // pending commands 조회 (one-time delivery)
+    const commands = await db
+      .select()
+      .from(schema.pendingCommands)
+      .where(eq(schema.pendingCommands.serverId, server.id))
+      .orderBy(schema.pendingCommands.createdAt);
+
+    if (commands.length > 0) {
+      await db
+        .delete(schema.pendingCommands)
+        .where(eq(schema.pendingCommands.serverId, server.id));
+    }
+
+    res.json({
+      ok: true,
+      serverId: server.id,
+      commands: commands.map(c => ({ id: c.id, serviceName: c.serviceName, action: c.action })),
+    });
   } catch (err) {
     next(err);
   }

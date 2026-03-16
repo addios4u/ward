@@ -99,7 +99,20 @@ CREATE TABLE services (
   restart_count INTEGER NOT NULL DEFAULT 0,
   started_at    TIMESTAMP,
   updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  cpu_usage     DOUBLE PRECISION,
+  mem_usage     BIGINT,
   UNIQUE(server_id, name)
 );
 
 CREATE INDEX idx_services_server ON services (server_id);
+
+-- 서비스 제어 명령 큐 (에이전트 polling 방식)
+CREATE TABLE pending_commands (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  server_id    UUID NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+  service_name VARCHAR(255) NOT NULL,
+  action       VARCHAR(50) NOT NULL,   -- 'restart'
+  created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_pending_commands_server ON pending_commands (server_id, created_at);

@@ -107,7 +107,21 @@ export const services = pgTable('services', {
   restartCount: integer('restart_count').notNull().default(0),
   startedAt: timestamp('started_at'),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  cpuUsage: doublePrecision('cpu_usage'),
+  memUsage: bigint('mem_usage', { mode: 'number' }),
 }, (t) => [unique('services_server_name_unique').on(t.serverId, t.name)]);
+
+// 서비스 제어 명령 큐 (에이전트 polling 방식)
+export const pendingCommands = pgTable('pending_commands', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  serverId: uuid('server_id').notNull().references(() => servers.id, { onDelete: 'cascade' }),
+  serviceName: varchar('service_name', { length: 255 }).notNull(),
+  action: varchar('action', { length: 50 }).notNull(),  // 'restart'
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export type PendingCommand = typeof pendingCommands.$inferSelect;
+export type NewPendingCommand = typeof pendingCommands.$inferInsert;
 
 // 타입 추론
 export type Server = typeof servers.$inferSelect;

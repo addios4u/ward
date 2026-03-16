@@ -26,6 +26,8 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction): Promis
         restartCount: schema.services.restartCount,
         startedAt: schema.services.startedAt,
         updatedAt: schema.services.updatedAt,
+        cpuUsage: schema.services.cpuUsage,
+        memUsage: schema.services.memUsage,
       })
       .from(schema.services)
       .innerJoin(schema.servers, eq(schema.services.serverId, schema.servers.id))
@@ -51,6 +53,8 @@ function formatService(row: {
   restartCount: number;
   startedAt: Date | null;
   updatedAt: Date;
+  cpuUsage?: number | null;
+  memUsage?: number | null;
 }) {
   return {
     id: row.id,
@@ -66,6 +70,8 @@ function formatService(row: {
     restartCount: row.restartCount,
     startedAt: row.startedAt?.toISOString() ?? null,
     updatedAt: row.updatedAt.toISOString(),
+    cpuUsage: row.cpuUsage ?? null,
+    memUsage: row.memUsage ?? null,
   };
 }
 
@@ -118,11 +124,39 @@ serverServicesRouter.get('/:id/services', async (req: Request, res: Response, ne
         restartCount: svc.restartCount,
         startedAt: svc.startedAt?.toISOString() ?? null,
         updatedAt: svc.updatedAt.toISOString(),
+        cpuUsage: svc.cpuUsage ?? null,
+        memUsage: svc.memUsage ?? null,
       })),
     });
   } catch (err) {
     next(err);
   }
+});
+
+// POST /api/servers/:id/services/:name/restart
+serverServicesRouter.post('/:id/services/:name/restart', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id, name } = req.params as { id: string; name: string };
+    const db = getDb();
+
+    const [server] = await db.select({ id: schema.servers.id })
+      .from(schema.servers).where(eq(schema.servers.id, id)).limit(1);
+    if (!server) { res.status(404).json({ error: '서버를 찾을 수 없습니다.' }); return; }
+
+    const [service] = await db.select({ name: schema.services.name })
+      .from(schema.services)
+      .where(and(eq(schema.services.serverId, id), eq(schema.services.name, name)))
+      .limit(1);
+    if (!service) { res.status(404).json({ error: '서비스를 찾을 수 없습니다.' }); return; }
+
+    await db.insert(schema.pendingCommands).values({
+      serverId: id,
+      serviceName: name,
+      action: 'restart',
+    });
+
+    res.json({ ok: true });
+  } catch (err) { next(err); }
 });
 
 // GET /api/servers/:id/services/:name/logs
