@@ -108,11 +108,12 @@ export async function start(serverUrl: string, options: { name?: string } = {}):
     hostname,
   });
 
-  // 6. config 저장
+  // 6. config 저장 (기존 서비스 설정 유지)
+  const existingConfig = loadConfig();
   saveConfig({
     server: { url: normalizedUrl, groupName: options.name },
     metrics: { interval: 30 },
-    services: [],
+    services: existingConfig?.services ?? [],
   });
 
   // 7. 데몬 프로세스 시작

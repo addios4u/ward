@@ -242,16 +242,25 @@ export async function startDaemon(): Promise<void> {
   logForwarder.start();
 
   // 메트릭 수집 인터벌 설정
-  metricsInterval = setInterval(collectAndSendMetrics, interval * 1000);
+  metricsInterval = setInterval(() => {
+    collectAndSendMetrics().catch(err => console.error('메트릭 수집 오류:', err));
+  }, interval * 1000);
 
   // Heartbeat 인터벌 설정 (30초)
-  heartbeatInterval = setInterval(sendHeartbeat, 30000);
+  heartbeatInterval = setInterval(() => {
+    sendHeartbeat().catch(err => console.error('하트비트 오류:', err));
+  }, 30000);
 
   // 즉시 첫 번째 수집 실행
   await collectAndSendMetrics();
   await sendHeartbeat();
   await syncServicesToServer();
 }
+
+// 처리되지 않은 Promise 거부 → 로그만 출력, 데몬 종료 방지
+process.on('unhandledRejection', (reason) => {
+  console.error('처리되지 않은 Promise 거부:', reason);
+});
 
 // SIGUSR2: ward service restart <name> 요청 처리
 process.on('SIGUSR2', () => {
