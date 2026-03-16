@@ -1,18 +1,18 @@
 import React from 'react';
-import { useNavigate, useLocation, Link, Outlet } from 'react-router-dom';
+import { useLocation, Link, Outlet } from 'react-router-dom';
 
 // 대시보드 레이아웃 — 네비게이션 (인증은 App.tsx의 PrivateRoute가 처리)
 export function DashboardLayout() {
-  const navigate = useNavigate();
   const { pathname } = useLocation();
 
   const handleLogout = async () => {
-    // 로그아웃 API 호출 후 로그인 페이지로 이동
-    await fetch(`${import.meta.env.VITE_SERVER_URL ?? 'http://localhost:4000'}/api/auth/logout`, {
+    // 로그아웃 API 호출 후 전체 리로드로 이동
+    // navigate() 사용 시 App.tsx auth 상태가 'authenticated'로 남아 /login → / 로 튕기는 문제 방지
+    await fetch(`${import.meta.env.VITE_SERVER_URL ?? ''}/api/auth/logout`, {
       method: 'POST',
       credentials: 'include',
     }).catch(() => {});
-    navigate('/login');
+    window.location.href = '/login';
   };
 
   // 현재 경로에 따라 active 탭 판별
