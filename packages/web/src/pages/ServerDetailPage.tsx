@@ -11,34 +11,26 @@ import { useMetrics } from '@/hooks/useMetrics';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { ServerStatusResponse, Log, LogLevel, WsMessage } from '@/types';
 
-// 바이트를 GB로 변환
 function formatGB(bytes: number | null): string {
   if (bytes === null) return '-';
   return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
 }
 
-// 서버 상세 페이지
 export function ServerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const serverId = id!;
   const [searchParams] = useSearchParams();
-
-  // URL 쿼리 파라미터에서 초기 탭과 소스 필터 읽기
-  const initialTab = searchParams.get('tab') === 'logs' ? 'logs' : 'metrics';
   const initialSource = searchParams.get('source') ?? '';
 
-  const [activeTab, setActiveTab] = useState<'metrics' | 'logs'>(initialTab);
   const [statusData, setStatusData] = useState<ServerStatusResponse | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const { metrics, loading: metricsLoading } = useMetrics(serverId);
 
-  // 로그 탭 상태
   const [logs, setLogs] = useState<Log[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
   const [logLevel, setLogLevel] = useState<LogLevel | ''>('');
-  // URL source 파라미터를 초기 소스 필터로 사용
-  const [logSource, setLogSource] = useState<string>(initialSource);
+  const [logSource] = useState<string>(initialSource);
 
   const loadStatus = useCallback(() => {
     serversApi
@@ -49,19 +41,17 @@ export function ServerDetailPage() {
 
   useEffect(() => {
     loadStatus();
-    // 30초마다 상태 갱신
     const timer = setInterval(loadStatus, 30000);
     return () => clearInterval(timer);
   }, [loadStatus]);
 
-  // 로그 불러오기 (레벨 및 소스 필터 지원)
   const loadLogs = useCallback(
-    (selectedLevel: LogLevel | '', selectedSource: string) => {
+    (level: LogLevel | '', source: string) => {
       setLogsLoading(true);
       serversApi
         .getLogs(serverId, {
-          level: selectedLevel || undefined,
-          source: selectedSource || undefined,
+          level: level || undefined,
+          source: source || undefined,
           limit: 100,
         })
         .then((res) => {
@@ -76,26 +66,23 @@ export function ServerDetailPage() {
     [serverId]
   );
 
-  // 로그 탭 활성화 시 로그 로드
   useEffect(() => {
-    if (activeTab === 'logs') {
-      loadLogs(logLevel, logSource);
-    }
-  }, [activeTab, loadLogs, logLevel, logSource]);
+    loadLogs(logLevel, logSource);
+    const timer = setInterval(() => loadLogs(logLevel, logSource), 10_000);
+    return () => clearInterval(timer);
+  }, [loadLogs, logLevel, logSource]);
 
-  // 실시간 WebSocket 로그 수신 (refs로 stale closure 방지 + 불필요한 재구독 방지)
-  const activeTabRef = useRef(activeTab);
   const logLevelRef = useRef(logLevel);
   const logSourceRef = useRef(logSource);
-  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
   useEffect(() => { logLevelRef.current = logLevel; }, [logLevel]);
   useEffect(() => { logSourceRef.current = logSource; }, [logSource]);
 
   const handleMessage = useCallback((msg: WsMessage) => {
-    if (msg.type === 'logs' && activeTabRef.current === 'logs') {
+    if (msg.type === 'logs') {
       setLogs((prev) => {
         const newLog = msg.data as Log;
         if (logLevelRef.current && newLog.level !== logLevelRef.current) return prev;
+        if (logSourceRef.current && newLog.source !== logSourceRef.current) return prev;
         return [...prev.slice(-199), newLog];
       });
     }
@@ -103,100 +90,75 @@ export function ServerDetailPage() {
 
   useWebSocket(handleMessage, serverId);
 
-  // 히스토리 마지막 메트릭, 없으면 status API의 latestMetric을 fallback으로 사용
   const latest = metrics[metrics.length - 1] ?? statusData?.latestMetric ?? null;
 
-  const tabActiveCls = 'text-blue-600 border-b-2 border-blue-600 font-medium';
-  const tabInactiveCls = 'text-gray-500 hover:text-gray-700';
-
   return (
-    <div className="space-y-6">
-      {/* 헤더 */}
-      <div className="flex items-center gap-3">
-        <Link to="/" className="text-gray-400 hover:text-gray-600 text-sm">
-          ← 서버 목록
-        </Link>
-      </div>
+    <div className="flex gap-4 h-[calc(100vh-8rem)]">
+      {/* 왼쪽: 서버 정보 + 메트릭 */}
+      <div className="flex-1 min-w-0 overflow-y-auto space-y-4 pr-1">
+        <div>
+          <Link to="/" className="text-gray-400 hover:text-gray-600 text-sm">
+            ← 서버 목록
+          </Link>
+        </div>
 
-      {statusError && (
-        <ErrorMessage message={statusError} onRetry={loadStatus} />
-      )}
+        {statusError && <ErrorMessage message={statusError} onRetry={loadStatus} />}
 
-      {statusData && (
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{statusData.server.name}</h1>
-            <p className="text-xs text-gray-400 mt-0.5 font-mono">{statusData.server.hostname}</p>
-            {/* 공인 IP 및 위치 정보 */}
-            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-              {statusData.server.publicIp && (
-                <span className="text-xs text-gray-500">
-                  <span className="text-gray-400">IP</span>{' '}
-                  <span className="font-mono">{statusData.server.publicIp}</span>
-                </span>
-              )}
-              {(statusData.server.city ?? statusData.server.country) && (
-                <span className="text-xs text-gray-500">
-                  {[statusData.server.city, statusData.server.country].filter(Boolean).join(', ')}
-                </span>
-              )}
+        {statusData && (
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">{statusData.server.name}</h1>
+              <p className="text-xs text-gray-400 mt-0.5 font-mono">{statusData.server.hostname}</p>
+              <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                {statusData.server.publicIp && (
+                  <span className="text-xs text-gray-500">
+                    <span className="text-gray-400">IP</span>{' '}
+                    <span className="font-mono">{statusData.server.publicIp}</span>
+                  </span>
+                )}
+                {(statusData.server.city ?? statusData.server.country) && (
+                  <span className="text-xs text-gray-500">
+                    {[statusData.server.city, statusData.server.country].filter(Boolean).join(', ')}
+                  </span>
+                )}
+              </div>
             </div>
+            <Badge status={statusData.server.status} />
           </div>
-          <Badge status={statusData.server.status} />
+        )}
+
+        {/* 현재 메트릭 요약 */}
+        <div className="grid grid-cols-3 gap-3">
+          <Card>
+            <CardBody>
+              <p className="text-xs text-gray-500">CPU 사용률</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">
+                {latest?.cpuUsage !== null && latest?.cpuUsage !== undefined
+                  ? `${latest.cpuUsage.toFixed(1)}%`
+                  : '-'}
+              </p>
+            </CardBody>
+          </Card>
+          <Card>
+            <CardBody>
+              <p className="text-xs text-gray-500">메모리 사용</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">
+                {latest ? formatGB(latest.memUsed) : '-'}
+              </p>
+              <p className="text-xs text-gray-400">/ {latest ? formatGB(latest.memTotal) : '-'}</p>
+            </CardBody>
+          </Card>
+          <Card>
+            <CardBody>
+              <p className="text-xs text-gray-500">부하 평균</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">
+                {latest?.loadAvg ? latest.loadAvg[0]?.toFixed(2) : '-'}
+              </p>
+            </CardBody>
+          </Card>
         </div>
-      )}
 
-      {/* 현재 메트릭 요약 카드 */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <Card>
-          <CardBody>
-            <p className="text-xs text-gray-500">CPU 사용률</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">
-              {latest?.cpuUsage !== null && latest?.cpuUsage !== undefined
-                ? `${latest.cpuUsage.toFixed(1)}%`
-                : '-'}
-            </p>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody>
-            <p className="text-xs text-gray-500">메모리 사용</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">
-              {latest ? formatGB(latest.memUsed) : '-'}
-            </p>
-            <p className="text-xs text-gray-400">/ {latest ? formatGB(latest.memTotal) : '-'}</p>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody>
-            <p className="text-xs text-gray-500">부하 평균</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">
-              {latest?.loadAvg ? latest.loadAvg[0]?.toFixed(2) : '-'}
-            </p>
-          </CardBody>
-        </Card>
-      </div>
-
-      {/* 탭 */}
-      <div className="border-b border-gray-200">
-        <div className="flex gap-6">
-          <button
-            onClick={() => setActiveTab('metrics')}
-            className={`text-sm pb-3 ${activeTab === 'metrics' ? tabActiveCls : tabInactiveCls}`}
-          >
-            메트릭
-          </button>
-          <button
-            onClick={() => setActiveTab('logs')}
-            className={`text-sm pb-3 ${activeTab === 'logs' ? tabActiveCls : tabInactiveCls}`}
-          >
-            로그
-          </button>
-        </div>
-      </div>
-
-      {/* 메트릭 탭 */}
-      {activeTab === 'metrics' && (
+        {/* 메트릭 차트 */}
         <Card>
           <CardHeader>
             <h2 className="text-base font-semibold text-gray-900">성능 그래프</h2>
@@ -212,36 +174,30 @@ export function ServerDetailPage() {
             )}
           </CardBody>
         </Card>
-      )}
+      </div>
 
-      {/* 로그 탭 */}
-      {activeTab === 'logs' && (
-        <div className="space-y-2">
-          {logsError && (
-            <ErrorMessage message={logsError} onRetry={() => loadLogs(logLevel, logSource)} />
-          )}
-          <div className="flex justify-end">
+      {/* 오른쪽: 로그 (항상 표시) */}
+      <div className="w-2/5 flex-shrink-0 flex flex-col min-h-0 bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+          <h2 className="text-sm font-semibold text-gray-700">로그</h2>
+          <div className="flex items-center gap-2">
+            {logsLoading && <Spinner size="sm" />}
+            {logsError && <span className="text-xs text-red-500">{logsError}</span>}
             <button
               onClick={() => loadLogs(logLevel, logSource)}
-              className="text-sm text-blue-600 hover:text-blue-700"
+              className="text-xs text-blue-500 hover:text-blue-700"
             >
               새로고침
             </button>
           </div>
-          <div className="h-[calc(100vh-400px)] overflow-hidden relative">
-            {logsLoading && logs.length === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center gap-2 text-gray-400 text-sm bg-white/80 z-10">
-                <Spinner size="sm" />
-                <span>로그 불러오는 중...</span>
-              </div>
-            )}
-            <LogViewer
-              logs={logs}
-              onLevelChange={(level) => setLogLevel(level)}
-            />
-          </div>
         </div>
-      )}
+        <div className="flex-1 min-h-0">
+          <LogViewer
+            logs={logs}
+            onLevelChange={(level) => setLogLevel(level)}
+          />
+        </div>
+      </div>
     </div>
   );
 }
