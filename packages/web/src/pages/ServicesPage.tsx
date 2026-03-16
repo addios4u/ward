@@ -132,6 +132,8 @@ export function ServicesPage() {
                     <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
                     <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">PID</th>
                     <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">재시작</th>
+                    <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">CPU%</th>
+                    <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">메모리</th>
                     <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">시작 시각</th>
                   </tr>
                 </thead>
@@ -147,6 +149,12 @@ export function ServicesPage() {
                       <td className="px-4 py-3"><ServiceStatusBadge status={svc.status} /></td>
                       <td className="px-4 py-3 text-right text-gray-600 font-mono text-xs">{svc.pid ?? '-'}</td>
                       <td className="px-4 py-3 text-right text-gray-600">{svc.restartCount}</td>
+                      <td className="px-4 py-3 text-right text-gray-600 font-mono text-xs">
+                        {svc.cpuUsage !== null ? `${svc.cpuUsage.toFixed(1)}%` : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-600 font-mono text-xs">
+                        {svc.memUsage !== null ? `${(svc.memUsage / 1024 / 1024).toFixed(1)} MB` : '-'}
+                      </td>
                       <td className="px-4 py-3 text-right text-gray-400 text-xs">{formatUptime(svc.startedAt)}</td>
                     </tr>
                   ))}

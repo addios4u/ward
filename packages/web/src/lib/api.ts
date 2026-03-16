@@ -116,6 +116,10 @@ export const servicesApi = {
   listByServer: (serverId: string): Promise<ServicesResponse> =>
     apiFetch(`/api/servers/${serverId}/services`),
 
+  // 서비스 재시작
+  restart: (serverId: string, serviceName: string): Promise<{ ok: boolean }> =>
+    apiFetch(`/api/servers/${serverId}/services/${encodeURIComponent(serviceName)}/restart`, { method: 'POST' }),
+
   // 특정 서비스의 로그 조회
   getLogs: (
     serverId: string,

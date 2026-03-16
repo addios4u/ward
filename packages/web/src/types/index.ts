@@ -122,6 +122,8 @@ export interface WardService {
   restartCount: number;
   startedAt: string | null;
   updatedAt: string;
+  cpuUsage: number | null;
+  memUsage: number | null;    // bytes
 }
 
 // 서비스 목록 응답 타입
