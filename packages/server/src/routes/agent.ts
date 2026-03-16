@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { getDb, schema } from '../db/index.js';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { serverIdentify } from '../middleware/serverIdentify.js';
 import { safePublish, safeSet, REDIS_CHANNELS, REDIS_KEYS } from '../lib/redis.js';
 
@@ -218,13 +218,20 @@ router.post('/heartbeat', async (req: Request, res: Response, next: NextFunction
     const server = (req as IdentifiedRequest).server;
     const db = getDb();
 
-    const { ipInfo, osName, osVersion, arch } = req.body as {
+    const { ipInfo, osName, osVersion, arch, services } = req.body as {
       sentAt?: string;
       hostname?: string;
       ipInfo?: { ip?: string; country?: string; city?: string; isp?: string };
       osName?: string;
       osVersion?: string;
       arch?: string;
+      services?: Array<{
+        name: string;
+        status: string;
+        pid?: number;
+        restartCount?: number;
+        startedAt?: string;
+      }>;
     };
 
     await db
@@ -242,6 +249,27 @@ router.post('/heartbeat', async (req: Request, res: Response, next: NextFunction
       })
       .where(eq(schema.servers.id, server.id));
 
+    // heartbeat에 서비스 상태가 포함된 경우 업데이트
+    if (services && Array.isArray(services)) {
+      for (const svc of services) {
+        await db
+          .update(schema.services)
+          .set({
+            status: (svc.status as 'running' | 'stopped' | 'error' | 'unknown') ?? 'unknown',
+            pid: svc.pid ?? null,
+            restartCount: svc.restartCount ?? 0,
+            startedAt: svc.startedAt ? new Date(svc.startedAt) : null,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(schema.services.serverId, server.id),
+              eq(schema.services.name, svc.name)
+            )
+          );
+      }
+    }
+
     // Redis 상태 캐시 (TTL: 90초)
     await safeSet(REDIS_KEYS.latestStatus(server.id), 'online', 90);
 
@@ -252,6 +280,90 @@ router.post('/heartbeat', async (req: Request, res: Response, next: NextFunction
     );
 
     res.json({ ok: true, serverId: server.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/agent/services/sync — 에이전트 서비스 목록 동기화
+router.post('/services/sync', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const server = (req as IdentifiedRequest).server;
+    const body = req.body as {
+      services?: Array<{
+        name: string;
+        type: string;
+        config: object;
+        status?: string;
+        pid?: number;
+        restartCount?: number;
+        startedAt?: string;
+      }>;
+    };
+
+    if (!body.services || !Array.isArray(body.services)) {
+      res.status(400).json({ error: 'services 배열은 필수입니다.' });
+      return;
+    }
+
+    const db = getDb();
+
+    // 에이전트가 보낸 서비스 upsert
+    if (body.services.length > 0) {
+      for (const svc of body.services) {
+        await db
+          .insert(schema.services)
+          .values({
+            serverId: server.id,
+            name: svc.name,
+            type: svc.type,
+            config: svc.config,
+            status: (svc.status as 'running' | 'stopped' | 'error' | 'unknown') ?? 'unknown',
+            pid: svc.pid ?? null,
+            restartCount: svc.restartCount ?? 0,
+            startedAt: svc.startedAt ? new Date(svc.startedAt) : null,
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: [schema.services.serverId, schema.services.name],
+            set: {
+              type: svc.type,
+              config: svc.config,
+              status: (svc.status as 'running' | 'stopped' | 'error' | 'unknown') ?? 'unknown',
+              pid: svc.pid ?? null,
+              restartCount: svc.restartCount ?? 0,
+              startedAt: svc.startedAt ? new Date(svc.startedAt) : null,
+              updatedAt: new Date(),
+            },
+          });
+      }
+    }
+
+    // 에이전트가 보내지 않은 서비스 삭제
+    const sentNames = body.services.map(s => s.name);
+    if (sentNames.length === 0) {
+      await db.delete(schema.services).where(eq(schema.services.serverId, server.id));
+    } else {
+      const existing = await db
+        .select({ name: schema.services.name })
+        .from(schema.services)
+        .where(eq(schema.services.serverId, server.id));
+
+      for (const existingSvc of existing) {
+        if (!sentNames.includes(existingSvc.name)) {
+          await db
+            .delete(schema.services)
+            .where(
+              and(
+                eq(schema.services.serverId, server.id),
+                eq(schema.services.name, existingSvc.name)
+              )
+            );
+        }
+      }
+    }
+
+    res.status(201).json({ ok: true });
   } catch (err) {
     next(err);
   }

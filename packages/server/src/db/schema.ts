@@ -11,6 +11,7 @@ import {
   integer,
   text,
   primaryKey,
+  unique,
 } from 'drizzle-orm/pg-core';
 
 // ENUM 타입
@@ -91,6 +92,23 @@ export const logs = pgTable(
   (t) => [primaryKey({ columns: [t.id, t.loggedAt] })],
 );
 
+// service_status ENUM
+export const serviceStatusEnum = pgEnum('service_status', ['running', 'stopped', 'error', 'unknown']);
+
+// services 테이블 (ward service add로 등록한 앱)
+export const services = pgTable('services', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  serverId: uuid('server_id').notNull().references(() => servers.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  type: varchar('type', { length: 50 }).notNull(),      // exec | file | journal | docker | pipe
+  config: jsonb('config').notNull(),                     // 전체 ServiceConfig JSON
+  status: serviceStatusEnum('status').notNull().default('unknown'),
+  pid: integer('pid'),                                   // 현재 PID (exec 타입용)
+  restartCount: integer('restart_count').notNull().default(0),
+  startedAt: timestamp('started_at'),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => [unique('services_server_name_unique').on(t.serverId, t.name)]);
+
 // 타입 추론
 export type Server = typeof servers.$inferSelect;
 export type NewServer = typeof servers.$inferInsert;
@@ -102,3 +120,5 @@ export type Process = typeof processes.$inferSelect;
 export type NewProcess = typeof processes.$inferInsert;
 export type Log = typeof logs.$inferSelect;
 export type NewLog = typeof logs.$inferInsert;
+export type Service = typeof services.$inferSelect;
+export type NewService = typeof services.$inferInsert;

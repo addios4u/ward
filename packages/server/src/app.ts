@@ -15,7 +15,7 @@ import agentRouter from './routes/agent.js';
 import authRouter from './routes/auth.js';
 import metricsRouter from './routes/metrics.js';
 import logsRouter from './routes/logs.js';
-import servicesRouter, { processesRouter } from './routes/services.js';
+import servicesRouter, { serverServicesRouter } from './routes/services.js';
 import usersRouter from './routes/users.js';
 import { WsManager } from './websocket/WsManager.js';
 import { getSessionStoreClient, getRateLimitClient } from './lib/redis.js';
@@ -126,7 +126,7 @@ export function createApp(): express.Application {
   app.use('/api/servers', apiLimiter, serversRouter);
   app.use('/api/servers', apiLimiter, metricsRouter);
   app.use('/api/servers', apiLimiter, logsRouter);
-  app.use('/api/servers', apiLimiter, processesRouter);
+  app.use('/api/servers', apiLimiter, serverServicesRouter);
   app.use('/api/services', apiLimiter, servicesRouter);
   app.use('/api/users', apiLimiter, usersRouter);
 

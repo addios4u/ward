@@ -4,85 +4,90 @@ import { eq, desc, and } from 'drizzle-orm';
 import { sessionAuth } from '../middleware/sessionAuth.js';
 
 const router: Router = Router();
-
-// 모든 서비스 라우트에 세션 인증 적용
 router.use(sessionAuth);
 
-// GET /api/services — 각 서버의 최신 프로세스 목록 반환
+// GET /api/services — 모든 서버의 ward 등록 서비스 목록
 router.get('/', async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const db = getDb();
 
-    // 서버 목록 조회
-    const serverList = await db
+    const rows = await db
+      .select({
+        id: schema.services.id,
+        serverId: schema.services.serverId,
+        serverName: schema.servers.name,
+        serverHostname: schema.servers.hostname,
+        serverStatus: schema.servers.status,
+        name: schema.services.name,
+        type: schema.services.type,
+        config: schema.services.config,
+        status: schema.services.status,
+        pid: schema.services.pid,
+        restartCount: schema.services.restartCount,
+        startedAt: schema.services.startedAt,
+        updatedAt: schema.services.updatedAt,
+      })
+      .from(schema.services)
+      .innerJoin(schema.servers, eq(schema.services.serverId, schema.servers.id))
+      .orderBy(schema.servers.createdAt, schema.services.name);
+
+    res.json({ services: rows.map(formatService) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+function formatService(row: {
+  id: string;
+  serverId: string;
+  serverName: string;
+  serverHostname: string;
+  serverStatus: 'online' | 'offline' | 'unknown';
+  name: string;
+  type: string;
+  config: unknown;
+  status: 'running' | 'stopped' | 'error' | 'unknown';
+  pid: number | null;
+  restartCount: number;
+  startedAt: Date | null;
+  updatedAt: Date;
+}) {
+  return {
+    id: row.id,
+    serverId: row.serverId,
+    serverName: row.serverName,
+    serverHostname: row.serverHostname,
+    serverStatus: row.serverStatus,
+    name: row.name,
+    type: row.type,
+    config: row.config,
+    status: row.status,
+    pid: row.pid,
+    restartCount: row.restartCount,
+    startedAt: row.startedAt?.toISOString() ?? null,
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export default router;
+
+// /api/servers/:id/services 라우터 (app.ts에서 /api/servers에 마운트)
+export const serverServicesRouter: Router = Router();
+serverServicesRouter.use(sessionAuth);
+
+// GET /api/servers/:id/services
+serverServicesRouter.get('/:id/services', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params as { id: string };
+    const db = getDb();
+
+    const [server] = await db
       .select({
         id: schema.servers.id,
         name: schema.servers.name,
         hostname: schema.servers.hostname,
         status: schema.servers.status,
       })
-      .from(schema.servers)
-      .orderBy(schema.servers.createdAt);
-
-    // 각 서버별 최신 프로세스 목록 조회
-    const services = await Promise.all(
-      serverList.map(async (server) => {
-        // 가장 최근 수집 시점 조회
-        const [latest] = await db
-          .select({ collectedAt: schema.processes.collectedAt })
-          .from(schema.processes)
-          .where(eq(schema.processes.serverId, server.id))
-          .orderBy(desc(schema.processes.collectedAt))
-          .limit(1);
-
-        const processes = latest
-          ? await db
-              .select()
-              .from(schema.processes)
-              .where(
-                and(
-                  eq(schema.processes.serverId, server.id),
-                  eq(schema.processes.collectedAt, latest.collectedAt),
-                )
-              )
-          : [];
-
-        return {
-          serverId: server.id,
-          serverName: server.name,
-          serverHostname: server.hostname,
-          serverStatus: server.status,
-          processes: processes.map((p) => ({
-            pid: p.pid,
-            name: p.name,
-            cpuUsage: p.cpuUsage,
-            memUsage: p.memUsage,
-            status: p.status ?? 'unknown',
-            collectedAt: p.collectedAt.toISOString(),
-          })),
-        };
-      })
-    );
-
-    res.json({ services });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// GET /api/servers/:id/processes — 특정 서버의 최신 프로세스 목록 반환
-// 이 라우터는 /api/servers 에 마운트되므로 경로는 /:id/processes
-export const processesRouter: Router = Router();
-processesRouter.use(sessionAuth);
-
-processesRouter.get('/:id/processes', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const id = req.params['id'] as string;
-    const db = getDb();
-
-    // 서버 존재 여부 확인
-    const [server] = await db
-      .select({ id: schema.servers.id })
       .from(schema.servers)
       .where(eq(schema.servers.id, id))
       .limit(1);
@@ -92,35 +97,72 @@ processesRouter.get('/:id/processes', async (req: Request, res: Response, next: 
       return;
     }
 
-    // 가장 최근 collectedAt 조회
-    const [latest] = await db
-      .select({ collectedAt: schema.processes.collectedAt })
-      .from(schema.processes)
-      .where(eq(schema.processes.serverId, id))
-      .orderBy(desc(schema.processes.collectedAt))
-      .limit(1);
-
-    if (!latest) {
-      res.json({ processes: [], collectedAt: null });
-      return;
-    }
-
-    // 해당 서버의 최신 시점 프로세스 목록 조회
-    const processList = await db
+    const rows = await db
       .select()
-      .from(schema.processes)
-      .where(
-        and(
-          eq(schema.processes.serverId, id),
-          eq(schema.processes.collectedAt, latest.collectedAt),
-        )
-      )
-      .limit(1000);
+      .from(schema.services)
+      .where(eq(schema.services.serverId, id))
+      .orderBy(schema.services.name);
 
-    res.json({ processes: processList, collectedAt: latest.collectedAt });
+    res.json({
+      services: rows.map(svc => ({
+        id: svc.id,
+        serverId: svc.serverId,
+        serverName: server.name,
+        serverHostname: server.hostname,
+        serverStatus: server.status,
+        name: svc.name,
+        type: svc.type,
+        config: svc.config,
+        status: svc.status,
+        pid: svc.pid,
+        restartCount: svc.restartCount,
+        startedAt: svc.startedAt?.toISOString() ?? null,
+        updatedAt: svc.updatedAt.toISOString(),
+      })),
+    });
   } catch (err) {
     next(err);
   }
 });
 
-export default router;
+// GET /api/servers/:id/services/:name/logs
+serverServicesRouter.get('/:id/services/:name/logs', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id, name } = req.params as { id: string; name: string };
+    const limit = Math.min(parseInt(String(req.query['limit'] ?? '100'), 10), 1000);
+    const offset = parseInt(String(req.query['offset'] ?? '0'), 10);
+    const level = req.query['level'] as string | undefined;
+
+    const db = getDb();
+
+    const conditions = [
+      eq(schema.logs.serverId, id),
+      eq(schema.logs.source, name),
+      ...(level ? [eq(schema.logs.level, level)] : []),
+    ];
+
+    const logs = await db
+      .select()
+      .from(schema.logs)
+      .where(and(...conditions))
+      .orderBy(desc(schema.logs.loggedAt))
+      .limit(limit)
+      .offset(offset);
+
+    res.json({
+      logs: logs.map(l => ({
+        id: l.id,
+        serverId: l.serverId,
+        source: l.source,
+        level: l.level,
+        message: l.message,
+        loggedAt: l.loggedAt.toISOString(),
+        createdAt: l.createdAt.toISOString(),
+      })),
+      limit,
+      offset,
+    });
+  } catch (err) {
+    next(err);
+  }
+});

@@ -83,3 +83,23 @@ CREATE INDEX idx_metrics_server_time   ON metrics   (server_id, collected_at DES
 CREATE INDEX idx_processes_server_time ON processes (server_id, collected_at DESC);
 CREATE INDEX idx_logs_server_time      ON logs      (server_id, logged_at DESC);
 CREATE INDEX idx_logs_level            ON logs      (server_id, level, logged_at DESC);
+
+-- service_status ENUM
+CREATE TYPE service_status AS ENUM ('running', 'stopped', 'error', 'unknown');
+
+-- ward 등록 서비스 (pm2 방식)
+CREATE TABLE services (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  server_id     UUID NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+  name          VARCHAR(255) NOT NULL,
+  type          VARCHAR(50) NOT NULL,      -- exec, file, journal, docker, pipe
+  config        JSONB NOT NULL,            -- 전체 ServiceConfig JSON
+  status        service_status NOT NULL DEFAULT 'unknown',
+  pid           INTEGER,                   -- 현재 PID (exec 타입)
+  restart_count INTEGER NOT NULL DEFAULT 0,
+  started_at    TIMESTAMP,
+  updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+  UNIQUE(server_id, name)
+);
+
+CREATE INDEX idx_services_server ON services (server_id);
