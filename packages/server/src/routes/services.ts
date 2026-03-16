@@ -159,6 +159,28 @@ serverServicesRouter.post('/:id/services/:name/restart', async (req: Request, re
   } catch (err) { next(err); }
 });
 
+// DELETE /api/servers/:id/services/:name
+serverServicesRouter.delete('/:id/services/:name', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id, name } = req.params as { id: string; name: string };
+    const db = getDb();
+
+    const [deleted] = await db
+      .delete(schema.services)
+      .where(and(eq(schema.services.serverId, id), eq(schema.services.name, name)))
+      .returning({ id: schema.services.id });
+
+    if (!deleted) {
+      res.status(404).json({ error: '서비스를 찾을 수 없습니다.' });
+      return;
+    }
+
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/servers/:id/services/:name/logs
 serverServicesRouter.get('/:id/services/:name/logs', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {

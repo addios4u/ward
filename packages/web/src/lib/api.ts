@@ -120,6 +120,10 @@ export const servicesApi = {
   restart: (serverId: string, serviceName: string): Promise<{ ok: boolean }> =>
     apiFetch(`/api/servers/${serverId}/services/${encodeURIComponent(serviceName)}/restart`, { method: 'POST' }),
 
+  // 서비스 삭제 (비실행 상태인 경우)
+  delete: (serverId: string, serviceName: string): Promise<void> =>
+    apiFetch(`/api/servers/${serverId}/services/${encodeURIComponent(serviceName)}`, { method: 'DELETE' }),
+
   // 특정 서비스의 로그 조회
   getLogs: (
     serverId: string,

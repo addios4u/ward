@@ -8,6 +8,25 @@ import type { ServicesResponse, WardService } from '@/types';
 
 const POLL_INTERVAL_MS = 30_000;
 
+function serviceStatusPriority(status: string): number {
+  if (status === 'error') return 0;
+  if (status === 'stopped') return 1;
+  if (status === 'unknown') return 2;
+  return 3; // running
+}
+
+function sortServices(services: WardService[]): WardService[] {
+  return [...services].sort((a, b) => {
+    const sp = serviceStatusPriority(a.status) - serviceStatusPriority(b.status);
+    if (sp !== 0) return sp;
+    const cpuDiff = (b.cpuUsage ?? 0) - (a.cpuUsage ?? 0);
+    if (Math.abs(cpuDiff) >= 5) return cpuDiff;
+    const memDiff = (b.memUsage ?? 0) - (a.memUsage ?? 0);
+    if (Math.abs(memDiff) >= 5) return memDiff;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+}
+
 function ServiceStatusBadge({ status }: { status: string }) {
   const classes: Record<string, string> = {
     running: 'bg-green-100 text-green-700',
@@ -56,6 +75,19 @@ export function ServicesPage() {
       });
   }, []);
 
+  const handleDeleteService = async (serverId: string, name: string) => {
+    if (!confirm(`"${name}" 서비스를 삭제하시겠습니까?`)) return;
+    try {
+      await servicesApi.delete(serverId, name);
+      setData(prev => prev ? {
+        ...prev,
+        services: prev.services.filter(s => !(s.serverId === serverId && s.name === name)),
+      } : prev);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : '삭제 실패');
+    }
+  };
+
   useEffect(() => {
     fetchServices();
     const timer = setInterval(fetchServices, POLL_INTERVAL_MS);
@@ -91,7 +123,12 @@ export function ServicesPage() {
     return acc;
   }, {});
 
-  const groupEntries = Object.entries(grouped);
+  const groupEntries = Object.entries(grouped).sort(([, a], [, b]) => {
+    const aHasIssue = a.services.some(s => s.status !== 'running');
+    const bHasIssue = b.services.some(s => s.status !== 'running');
+    if (aHasIssue !== bHasIssue) return aHasIssue ? -1 : 1;
+    return 0;
+  });
 
   return (
     <div>
@@ -135,29 +172,50 @@ export function ServicesPage() {
                     <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">CPU%</th>
                     <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">메모리</th>
                     <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">시작 시각</th>
+                    <th className="px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {group.services.map((svc) => (
-                    <tr
-                      key={svc.id}
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => navigate(`/services/${svc.serverId}/${encodeURIComponent(svc.name)}`)}
-                    >
-                      <td className="px-4 py-3 font-medium text-gray-900">{svc.name}</td>
-                      <td className="px-4 py-3"><ServiceTypeBadge type={svc.type} /></td>
-                      <td className="px-4 py-3"><ServiceStatusBadge status={svc.status} /></td>
-                      <td className="px-4 py-3 text-right text-gray-600 font-mono text-xs">{svc.pid ?? '-'}</td>
-                      <td className="px-4 py-3 text-right text-gray-600">{svc.restartCount}</td>
-                      <td className="px-4 py-3 text-right text-gray-600 font-mono text-xs">
-                        {svc.cpuUsage !== null ? `${svc.cpuUsage.toFixed(1)}%` : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-600 font-mono text-xs">
-                        {svc.memUsage !== null ? `${(svc.memUsage / 1024 / 1024).toFixed(1)} MB` : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-400 text-xs">{formatUptime(svc.startedAt)}</td>
-                    </tr>
-                  ))}
+                  {sortServices(group.services).map((svc) => {
+                    const isIssue = svc.status !== 'running';
+                    const rowBg = svc.status === 'error'
+                      ? 'bg-red-50 hover:bg-red-100'
+                      : svc.status === 'stopped'
+                      ? 'bg-gray-50 hover:bg-gray-100'
+                      : svc.status === 'unknown'
+                      ? 'bg-yellow-50 hover:bg-yellow-100'
+                      : 'hover:bg-gray-50';
+                    return (
+                      <tr
+                        key={svc.id}
+                        className={`cursor-pointer ${rowBg}`}
+                        onClick={() => navigate(`/services/${svc.serverId}/${encodeURIComponent(svc.name)}`)}
+                      >
+                        <td className="px-4 py-3 font-medium text-gray-900">{svc.name}</td>
+                        <td className="px-4 py-3"><ServiceTypeBadge type={svc.type} /></td>
+                        <td className="px-4 py-3"><ServiceStatusBadge status={svc.status} /></td>
+                        <td className="px-4 py-3 text-right text-gray-600 font-mono text-xs">{svc.pid ?? '-'}</td>
+                        <td className="px-4 py-3 text-right text-gray-600">{svc.restartCount}</td>
+                        <td className="px-4 py-3 text-right text-gray-600 font-mono text-xs">
+                          {svc.cpuUsage !== null ? `${svc.cpuUsage.toFixed(1)}%` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-600 font-mono text-xs">
+                          {svc.memUsage !== null ? `${(svc.memUsage / 1024 / 1024).toFixed(1)} MB` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-400 text-xs">{formatUptime(svc.startedAt)}</td>
+                        <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                          {isIssue && (
+                            <button
+                              onClick={() => void handleDeleteService(svc.serverId, svc.name)}
+                              className="px-2 py-0.5 text-xs bg-red-500 hover:bg-red-600 text-white rounded"
+                            >
+                              삭제
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

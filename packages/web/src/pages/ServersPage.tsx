@@ -7,6 +7,26 @@ import type { Server } from '@/types';
 
 const POLL_INTERVAL_MS = 30_000;
 
+function serverStatusPriority(server: Server): number {
+  if (server.status === 'offline') return 0;
+  if (server.status === 'unknown') return 1;
+  return 2;
+}
+
+function sortServersInGroup(servers: Server[]): Server[] {
+  return [...servers].sort((a, b) => {
+    const sp = serverStatusPriority(a) - serverStatusPriority(b);
+    if (sp !== 0) return sp;
+    const aCpu = a.latestMetrics?.cpuUsage ?? 0;
+    const bCpu = b.latestMetrics?.cpuUsage ?? 0;
+    if (Math.abs(bCpu - aCpu) >= 5) return bCpu - aCpu;
+    const aMemPct = a.latestMetrics?.memTotal ? (a.latestMetrics.memUsed ?? 0) / a.latestMetrics.memTotal * 100 : 0;
+    const bMemPct = b.latestMetrics?.memTotal ? (b.latestMetrics.memUsed ?? 0) / b.latestMetrics.memTotal * 100 : 0;
+    if (Math.abs(bMemPct - aMemPct) >= 5) return bMemPct - aMemPct;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+}
+
 // 서버를 그룹별로 묶어 반환 (groupName null → "미분류")
 function groupServers(servers: Server[]): { groupName: string; servers: Server[] }[] {
   const groupMap = new Map<string, Server[]>();
@@ -19,14 +39,18 @@ function groupServers(servers: Server[]): { groupName: string; servers: Server[]
     groupMap.get(key)!.push(server);
   }
 
-  // 그룹 이름 정렬: 미분류는 항상 마지막
-  const sorted = [...groupMap.entries()].sort(([a], [b]) => {
-    if (a === '미분류') return 1;
-    if (b === '미분류') return -1;
-    return a.localeCompare(b);
+  const sorted = [...groupMap.entries()].sort(([aName, aServers], [bName, bServers]) => {
+    // 오프라인/unknown 서버가 있는 그룹 먼저
+    const aHasIssue = aServers.some(s => s.status !== 'online');
+    const bHasIssue = bServers.some(s => s.status !== 'online');
+    if (aHasIssue !== bHasIssue) return aHasIssue ? -1 : 1;
+    // 미분류는 항상 마지막
+    if (aName === '미분류') return 1;
+    if (bName === '미분류') return -1;
+    return aName.localeCompare(bName);
   });
 
-  return sorted.map(([groupName, servers]) => ({ groupName, servers }));
+  return sorted.map(([groupName, servers]) => ({ groupName, servers: sortServersInGroup(servers) }));
 }
 
 // 전체 서버 목록 페이지
@@ -34,6 +58,16 @@ export function ServersPage() {
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const handleDeleteServer = async (id: string, name: string) => {
+    if (!confirm(`"${name}" 서버를 삭제하시겠습니까?\n에이전트가 재시작되면 자동으로 재등록됩니다.`)) return;
+    try {
+      await serversApi.delete(id);
+      setServers(prev => prev.filter(s => s.id !== id));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : '삭제 실패');
+    }
+  };
 
   const fetchServers = useCallback(() => {
     serversApi
@@ -100,9 +134,28 @@ export function ServersPage() {
               </div>
               {/* 그룹 내 서버 카드 목록 */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {groupedServers.map((server) => (
-                  <ServerCard key={server.id} server={server} />
-                ))}
+                {groupedServers.map((server) => {
+                  const isIssue = server.status !== 'online';
+                  return (
+                    <div key={server.id} className="relative">
+                      {isIssue && (
+                        <div className="absolute inset-0 rounded-lg ring-2 ring-red-400 pointer-events-none z-10" />
+                      )}
+                      <ServerCard server={server} />
+                      {isIssue && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            void handleDeleteServer(server.id, server.name);
+                          }}
+                          className="absolute top-2 right-2 z-20 px-2 py-0.5 text-xs bg-red-500 hover:bg-red-600 text-white rounded shadow"
+                        >
+                          삭제
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
