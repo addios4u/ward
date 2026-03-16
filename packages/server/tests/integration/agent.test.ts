@@ -85,10 +85,13 @@ vi.mock('../../src/db/index.js', () => {
   // update().set().where() → 직접 await
   // select().from().where().limit() → limit 호출
   // delete().where().returning() → returning 호출
+  const orderByFn = vi.fn().mockResolvedValue([]);
+
   const makeWhereResult = (resolveValue: any[]) => {
     const p = Promise.resolve(resolveValue) as any;
     p.limit = limitFn;
     p.returning = returningFn;
+    p.orderBy = orderByFn;
     return p;
   };
 
@@ -130,6 +133,19 @@ vi.mock('../../src/db/index.js', () => {
       metrics: { serverId: 'serverId' },
       processes: { serverId: 'serverId', status: 'status' },
       logs: { serverId: 'serverId' },
+      pendingCommands: {
+        id: 'id',
+        serverId: 'serverId',
+        serviceName: 'serviceName',
+        action: 'action',
+        createdAt: 'createdAt',
+      },
+      services: {
+        id: 'id',
+        serverId: 'serverId',
+        name: 'name',
+        status: 'status',
+      },
     },
     closePool: vi.fn(),
   };
@@ -164,6 +180,7 @@ beforeEach(async () => {
     const p = Promise.resolve(resolveValue) as any;
     p.limit = vi.mocked(mockDb.limit);
     p.returning = vi.mocked(mockDb.returning);
+    p.orderBy = vi.fn().mockResolvedValue([]);
     return p;
   };
 

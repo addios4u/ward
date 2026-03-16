@@ -31,12 +31,14 @@ vi.mock('os', () => ({
 const mockServiceWatch = vi.fn();
 const mockServiceUnwatchAll = vi.fn();
 const mockServiceOn = vi.fn();
+const mockGetServiceStatus = vi.fn().mockReturnValue({ status: 'unknown', restartCount: 0 });
 
 vi.mock('../../src/logs/ServiceWatcher.js', () => ({
   ServiceWatcher: vi.fn().mockImplementation(() => ({
     watch: mockServiceWatch,
     unwatchAll: mockServiceUnwatchAll,
     on: mockServiceOn,
+    getServiceStatus: mockGetServiceStatus,
   })),
 }));
 
@@ -58,6 +60,7 @@ vi.mock('../../src/transport/HttpClient.js', () => ({
     sendMetrics: vi.fn().mockResolvedValue({ success: true }),
     sendHeartbeat: vi.fn().mockResolvedValue({ success: true }),
     post: vi.fn().mockResolvedValue({ success: true }),
+    syncServices: vi.fn().mockResolvedValue({ success: true }),
   })),
   SendErrorType: {
     CONNECTION_REFUSED: 'CONNECTION_REFUSED',

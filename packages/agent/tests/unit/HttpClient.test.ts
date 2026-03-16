@@ -147,6 +147,7 @@ describe('HttpClient', () => {
         ok: true,
         status: 200,
         statusText: 'OK',
+        json: async () => ({ ok: true, serverId: 'test-server-id', commands: [] }),
       });
 
       const result = await client.sendHeartbeat({ sentAt: new Date().toISOString() });

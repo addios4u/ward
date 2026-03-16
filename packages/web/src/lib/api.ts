@@ -55,7 +55,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   }
 
   // 204 No Content 등 본문 없는 응답은 json() 호출 생략
-  if (res.status === 204 || res.headers.get('content-length') === '0') {
+  if (res.status === 204 || res.headers?.get('content-length') === '0') {
     return undefined as unknown as T;
   }
   return res.json() as Promise<T>;

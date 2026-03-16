@@ -6,80 +6,145 @@ import { sessionAuth } from '../middleware/sessionAuth.js';
 const router: Router = Router();
 router.use(sessionAuth);
 
-// GET /api/services — 모든 서버의 ward 등록 서비스 목록
+// GET /api/services — 모든 서버의 최신 프로세스 목록 (서버별 그룹)
 router.get('/', async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const db = getDb();
 
-    const rows = await db
+    // 서버 목록 조회
+    const servers = await db
       .select({
-        id: schema.services.id,
-        serverId: schema.services.serverId,
-        serverName: schema.servers.name,
-        serverHostname: schema.servers.hostname,
-        serverStatus: schema.servers.status,
-        name: schema.services.name,
-        type: schema.services.type,
-        config: schema.services.config,
-        status: schema.services.status,
-        pid: schema.services.pid,
-        restartCount: schema.services.restartCount,
-        startedAt: schema.services.startedAt,
-        updatedAt: schema.services.updatedAt,
-        cpuUsage: schema.services.cpuUsage,
-        memUsage: schema.services.memUsage,
+        id: schema.servers.id,
+        name: schema.servers.name,
+        hostname: schema.servers.hostname,
+        status: schema.servers.status,
       })
-      .from(schema.services)
-      .innerJoin(schema.servers, eq(schema.services.serverId, schema.servers.id))
-      .orderBy(schema.servers.createdAt, schema.services.name);
+      .from(schema.servers)
+      .orderBy(schema.servers.createdAt);
 
-    res.json({ services: rows.map(formatService) });
+    // 각 서버의 최신 프로세스 조회
+    const services = await Promise.all(
+      servers.map(async (server) => {
+        // 최신 collectedAt 조회
+        const [latest] = await db
+          .select({ collectedAt: schema.processes.collectedAt })
+          .from(schema.processes)
+          .where(eq(schema.processes.serverId, server.id))
+          .orderBy(desc(schema.processes.collectedAt))
+          .limit(1);
+
+        if (!latest) {
+          return {
+            serverId: server.id,
+            serverName: server.name,
+            serverHostname: server.hostname,
+            serverStatus: server.status,
+            processes: [],
+          };
+        }
+
+        // 해당 collectedAt의 프로세스 목록 조회
+        const processes = await db
+          .select()
+          .from(schema.processes)
+          .where(
+            and(
+              eq(schema.processes.serverId, server.id),
+              eq(schema.processes.collectedAt, latest.collectedAt)
+            )
+          );
+
+        return {
+          serverId: server.id,
+          serverName: server.name,
+          serverHostname: server.hostname,
+          serverStatus: server.status,
+          processes: processes.map((p) => ({
+            id: p.id,
+            serverId: p.serverId,
+            pid: p.pid,
+            name: p.name,
+            cpuUsage: p.cpuUsage,
+            memUsage: p.memUsage,
+            status: p.status ?? 'unknown',
+            collectedAt: p.collectedAt,
+          })),
+        };
+      })
+    );
+
+    res.json({ services });
   } catch (err) {
     next(err);
   }
 });
-
-function formatService(row: {
-  id: string;
-  serverId: string;
-  serverName: string;
-  serverHostname: string;
-  serverStatus: 'online' | 'offline' | 'unknown';
-  name: string;
-  type: string;
-  config: unknown;
-  status: 'running' | 'stopped' | 'error' | 'unknown';
-  pid: number | null;
-  restartCount: number;
-  startedAt: Date | null;
-  updatedAt: Date;
-  cpuUsage?: number | null;
-  memUsage?: number | null;
-}) {
-  return {
-    id: row.id,
-    serverId: row.serverId,
-    serverName: row.serverName,
-    serverHostname: row.serverHostname,
-    serverStatus: row.serverStatus,
-    name: row.name,
-    type: row.type,
-    config: row.config,
-    status: row.status,
-    pid: row.pid,
-    restartCount: row.restartCount,
-    startedAt: row.startedAt?.toISOString() ?? null,
-    updatedAt: row.updatedAt.toISOString(),
-    cpuUsage: row.cpuUsage ?? null,
-    memUsage: row.memUsage ?? null,
-  };
-}
 
 export default router;
 
 // /api/servers/:id/services 라우터 (app.ts에서 /api/servers에 마운트)
 export const serverServicesRouter: Router = Router();
 serverServicesRouter.use(sessionAuth);
+
+// GET /api/servers/:id/processes — 특정 서버의 최신 프로세스 목록
+serverServicesRouter.get('/:id/processes', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params as { id: string };
+    const db = getDb();
+
+    // 서버 존재 확인
+    const [server] = await db
+      .select({ id: schema.servers.id })
+      .from(schema.servers)
+      .where(eq(schema.servers.id, id))
+      .limit(1);
+
+    if (!server) {
+      res.status(404).json({ error: '서버를 찾을 수 없습니다.' });
+      return;
+    }
+
+    // 최신 collectedAt 조회
+    const [latest] = await db
+      .select({ collectedAt: schema.processes.collectedAt })
+      .from(schema.processes)
+      .where(eq(schema.processes.serverId, id))
+      .orderBy(desc(schema.processes.collectedAt))
+      .limit(1);
+
+    if (!latest) {
+      res.json({ processes: [], collectedAt: null });
+      return;
+    }
+
+    // 해당 collectedAt의 프로세스 목록 조회
+    const processes = await db
+      .select()
+      .from(schema.processes)
+      .where(
+        and(
+          eq(schema.processes.serverId, id),
+          eq(schema.processes.collectedAt, latest.collectedAt)
+        )
+      )
+      .limit(10000);
+
+    res.json({
+      processes: processes.map((p) => ({
+        id: p.id,
+        serverId: p.serverId,
+        pid: p.pid,
+        name: p.name,
+        cpuUsage: p.cpuUsage,
+        memUsage: p.memUsage,
+        status: p.status ?? 'unknown',
+        collectedAt: p.collectedAt,
+      })),
+      collectedAt: latest.collectedAt,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // GET /api/servers/:id/services
 serverServicesRouter.get('/:id/services', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
