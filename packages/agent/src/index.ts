@@ -76,7 +76,8 @@ serviceCmd
   .option('--cwd <dir>', '명령어 실행 디렉토리 (--exec와 함께 사용)')
   .option('--journal <unit>', 'systemd 유닛 이름 (예: nginx.service)')
   .option('--docker <container>', '도커 컨테이너 이름')
-  .action(async (name: string, options: { log?: string[]; exec?: string; cwd?: string; journal?: string; docker?: string }) => {
+  .option('--max-mem <size>', '메모리 초과 시 자동 재시작 임계값 (예: 500M, 1G, --exec와 함께 사용)')
+  .action(async (name: string, options: { log?: string[]; exec?: string; cwd?: string; journal?: string; docker?: string; maxMem?: string }) => {
     await serviceAdd(name, options);
   });
 

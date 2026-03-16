@@ -34,6 +34,15 @@ function getConfig(): AgentConfig {
 }
 
 // ward service add <name> [옵션들]
+function parseMemSize(value: string): number {
+  const match = value.trim().match(/^(\d+(?:\.\d+)?)\s*([KMGkmg]?)B?$/);
+  if (!match) throw new Error(`메모리 크기 형식 오류: "${value}" (예: 500M, 1G, 512K)`);
+  const num = parseFloat(match[1]);
+  const unit = match[2].toUpperCase();
+  const multiplier: Record<string, number> = { '': 1, K: 1024, M: 1024 ** 2, G: 1024 ** 3 };
+  return Math.floor(num * multiplier[unit]);
+}
+
 export async function serviceAdd(
   name: string,
   options: {
@@ -42,6 +51,7 @@ export async function serviceAdd(
     cwd?: string;
     journal?: string;
     docker?: string;
+    maxMem?: string;
   }
 ): Promise<void> {
   const config = getConfig();
@@ -49,7 +59,8 @@ export async function serviceAdd(
   let service: ServiceConfig;
 
   if (options.exec) {
-    service = { name, method: 'exec', command: options.exec, restartDelay: 3000 };
+    const maxMemBytes = options.maxMem ? parseMemSize(options.maxMem) : undefined;
+    service = { name, method: 'exec', command: options.exec, restartDelay: 3000, ...(maxMemBytes ? { maxMemBytes } : {}) };
   } else if (options.journal) {
     service = { name, method: 'journal', unit: options.journal };
   } else if (options.docker) {
