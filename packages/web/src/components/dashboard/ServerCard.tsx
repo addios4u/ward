@@ -51,10 +51,12 @@ export function ServerCard({ server }: ServerCardProps) {
       ? (server.latestMetrics.memUsed / server.latestMetrics.memTotal) * 100
       : null;
 
-  // 디스크 사용률 계산 (total 용량이 가장 큰 마운트 기준 — macOS /System/Volumes/Data 등 대응)
+  // 디스크 사용률 계산 (usagePercent가 가장 높은 마운트 기준)
+  // — macOS: /System/Volumes/Data가 실제 데이터 볼륨이므로 / 보다 높게 나타남
+  // — Linux: 가장 꽉 찬 파티션을 우선 표시
   const diskEntry = server.latestMetrics?.diskUsage
     ? Object.values(server.latestMetrics.diskUsage).reduce(
-        (max, cur) => (cur.total > (max?.total ?? 0) ? cur : max),
+        (max, cur) => (cur.usagePercent > (max?.usagePercent ?? -1) ? cur : max),
         null as (typeof server.latestMetrics.diskUsage)[string] | null,
       )
     : null;
