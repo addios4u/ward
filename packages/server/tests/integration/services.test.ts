@@ -83,6 +83,9 @@ vi.mock('../../src/db/index.js', () => ({
       lastSeenAt: 'lastSeenAt',
       createdAt: 'createdAt',
       apiKey: 'apiKey',
+      osName: 'osName',
+      osVersion: 'osVersion',
+      arch: 'arch',
     },
     logs: {
       id: 'id',
@@ -91,7 +94,11 @@ vi.mock('../../src/db/index.js', () => ({
       loggedAt: 'loggedAt',
     },
     metrics: { serverId: 'serverId', collectedAt: 'collectedAt' },
-    processes: { serverId: 'serverId', collectedAt: 'collectedAt' },
+    processes: {
+      serverId: 'serverId',
+      collectedAt: 'collectedAt',
+      status: 'status',
+    },
     users: { id: 'id', email: 'email', passwordHash: 'passwordHash', createdAt: 'createdAt' },
   },
   closePool: vi.fn(),
@@ -143,18 +150,38 @@ describe('GET /api/services', () => {
     resetMockDb();
   });
 
-  it('모든 서버의 로그 소스(서비스) 목록을 반환해야 한다', async () => {
+  it('각 서버의 최신 프로세스 목록을 반환해야 한다', async () => {
     // 쿼리 순서:
-    // 1. select().from().orderBy()                         → 서버 목록 (orderBy 첫번째)
-    // 2. select().from().where().groupBy().orderBy()       → 로그 소스 목록 (orderBy 두번째)
+    // 1. select().from().orderBy()                         → 서버 목록
+    // 2. select().from().where().orderBy().limit(1)        → 최신 collectedAt
+    // 3. select().from().where(and(...))                   → 프로세스 목록 (where가 terminal, 직접 await)
+
+    const collectedAt = new Date('2024-01-01T12:00:00Z');
 
     mockDb.orderBy
       .mockResolvedValueOnce([        // 1번: 서버 목록
         { id: 'server-uuid-1', name: '웹 서버 1', hostname: 'web-01.example.com', status: 'online' },
       ])
-      .mockResolvedValueOnce([        // 2번: 로그 소스 목록
-        { source: 'ward-4000', lastLoggedAt: new Date('2024-01-01T12:00:00Z'), logCount: 42 },
-        { source: 'ward-4001', lastLoggedAt: new Date('2024-01-01T11:00:00Z'), logCount: 38 },
+      .mockReturnThis();              // 2번: orderBy 체인 (limit이 뒤에 옴)
+
+    mockDb.limit
+      .mockResolvedValueOnce([{ collectedAt }]);  // 2번: 최신 collectedAt
+
+    // 첫 번째 where: serverId 조건 → 체인 계속 (orderBy.limit 호출)
+    // 두 번째 where: and(serverId, collectedAt) → 직접 Promise resolve
+    mockDb.where
+      .mockReturnValueOnce(mockDb)                // 1번 where: 체인 계속
+      .mockResolvedValueOnce([                    // 2번 where: 프로세스 목록 직접 resolve
+        {
+          id: 1,
+          serverId: 'server-uuid-1',
+          pid: 1234,
+          name: 'node',
+          cpuUsage: 1.5,
+          memUsage: 102400,
+          status: 'running',
+          collectedAt,
+        },
       ]);
 
     const res = await request(app).get('/api/services');
@@ -163,11 +190,11 @@ describe('GET /api/services', () => {
     expect(res.body).toHaveProperty('services');
     expect(Array.isArray(res.body.services)).toBe(true);
     expect(res.body.services).toHaveLength(1);
-    expect(res.body.services[0].services).toHaveLength(2);
-    expect(res.body.services[0].services[0]).toMatchObject({
-      source: 'ward-4000',
-      logCount: 42,
-    });
+    expect(res.body.services[0]).toHaveProperty('serverId', 'server-uuid-1');
+    expect(res.body.services[0]).toHaveProperty('serverName', '웹 서버 1');
+    expect(res.body.services[0]).toHaveProperty('serverHostname', 'web-01.example.com');
+    expect(res.body.services[0]).toHaveProperty('serverStatus', 'online');
+    expect(Array.isArray(res.body.services[0].processes)).toBe(true);
   });
 
   it('서버가 없으면 빈 배열을 반환해야 한다', async () => {
@@ -180,17 +207,87 @@ describe('GET /api/services', () => {
     expect(res.body.services).toEqual([]);
   });
 
-  it('서버는 있지만 로그 소스가 없으면 빈 services를 반환해야 한다', async () => {
+  it('서버는 있지만 프로세스가 없으면 빈 processes를 반환해야 한다', async () => {
     mockDb.orderBy
       .mockResolvedValueOnce([        // 서버 목록
         { id: 'server-uuid-1', name: '웹 서버 1', hostname: 'web-01.example.com', status: 'online' },
       ])
-      .mockResolvedValueOnce([]);     // 로그 소스 없음
+      .mockReturnThis();
+
+    mockDb.limit.mockResolvedValueOnce([]);  // collectedAt 없음 → 프로세스 없음
 
     const res = await request(app).get('/api/services');
 
     expect(res.status).toBe(200);
-    expect(res.body.services[0].services).toEqual([]);
+    expect(res.body.services[0].processes).toEqual([]);
+  });
+
+  it('프로세스에 status 필드가 포함되어야 한다', async () => {
+    const collectedAt = new Date('2024-01-01T12:00:00Z');
+
+    mockDb.orderBy
+      .mockResolvedValueOnce([
+        { id: 'server-uuid-1', name: '웹 서버 1', hostname: 'web-01.example.com', status: 'online' },
+      ])
+      .mockReturnThis();
+
+    mockDb.limit.mockResolvedValueOnce([{ collectedAt }]);
+
+    mockDb.where
+      .mockReturnValueOnce(mockDb)
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          serverId: 'server-uuid-1',
+          pid: 5678,
+          name: 'nginx',
+          cpuUsage: 0.5,
+          memUsage: 51200,
+          status: 'sleeping',
+          collectedAt,
+        },
+      ]);
+
+    const res = await request(app).get('/api/services');
+
+    expect(res.status).toBe(200);
+    expect(res.body.services[0].processes[0]).toMatchObject({
+      pid: 5678,
+      name: 'nginx',
+      status: 'sleeping',
+    });
+  });
+
+  it('프로세스 status가 null이면 unknown으로 반환해야 한다', async () => {
+    const collectedAt = new Date('2024-01-01T12:00:00Z');
+
+    mockDb.orderBy
+      .mockResolvedValueOnce([
+        { id: 'server-uuid-1', name: '웹 서버 1', hostname: 'web-01.example.com', status: 'online' },
+      ])
+      .mockReturnThis();
+
+    mockDb.limit.mockResolvedValueOnce([{ collectedAt }]);
+
+    mockDb.where
+      .mockReturnValueOnce(mockDb)
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          serverId: 'server-uuid-1',
+          pid: 9999,
+          name: 'python',
+          cpuUsage: 2.0,
+          memUsage: 204800,
+          status: null,
+          collectedAt,
+        },
+      ]);
+
+    const res = await request(app).get('/api/services');
+
+    expect(res.status).toBe(200);
+    expect(res.body.services[0].processes[0].status).toBe('unknown');
   });
 });
 
@@ -209,7 +306,7 @@ describe('GET /api/servers/:id/processes', () => {
       .mockResolvedValueOnce([{ id: 'server-uuid-1' }])                          // 1번
       .mockResolvedValueOnce([{ collectedAt: new Date('2024-01-01T12:00:00Z') }]) // 2번
       .mockResolvedValueOnce([                                                    // 3번
-        { id: 1, serverId: 'server-uuid-1', pid: 1234, name: 'node', cpuUsage: 1.5, memUsage: 102400 },
+        { id: 1, serverId: 'server-uuid-1', pid: 1234, name: 'node', cpuUsage: 1.5, memUsage: 102400, status: 'running' },
       ]);
 
     const res = await request(app).get('/api/servers/server-uuid-1/processes');
