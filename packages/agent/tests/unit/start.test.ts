@@ -9,6 +9,7 @@ const {
   mockReadFileSync,
   mockUnlinkSync,
   mockFetch,
+  mockOsInfo,
 } = vi.hoisted(() => ({
   mockSpawn: vi.fn(),
   mockExistsSync: vi.fn(),
@@ -17,6 +18,14 @@ const {
   mockReadFileSync: vi.fn(),
   mockUnlinkSync: vi.fn(),
   mockFetch: vi.fn(),
+  mockOsInfo: vi.fn(),
+}));
+
+// systeminformation 모킹
+vi.mock('systeminformation', () => ({
+  default: {
+    osInfo: mockOsInfo,
+  },
 }));
 
 // child_process 모킹
@@ -118,6 +127,44 @@ describe('start - PID 파일 처리', () => {
 
     consoleErrorSpy.mockRestore();
     processExitSpy.mockRestore();
+  });
+});
+
+describe('start - OS 정보 등록', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockExistsSync.mockImplementation((p: string) => {
+      if (p === '/home/user/.ward/agent.pid') return false;
+      if (p === '/home/user/.ward') return true;
+      return false;
+    });
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ serverId: 'test-server-id' }),
+    });
+    // OS 정보 기본 응답
+    mockOsInfo.mockResolvedValue({
+      distro: 'Ubuntu',
+      release: '22.04',
+      arch: 'x64',
+    });
+    mockSpawn.mockReturnValue({ pid: 12345, unref: vi.fn() });
+  });
+
+  it('register 호출 시 osName, osVersion, arch를 포함해야 한다', async () => {
+    await start('http://localhost:3000', {});
+
+    // fetch가 register API를 호출했는지 확인
+    const registerCall = mockFetch.mock.calls.find((call: unknown[]) =>
+      typeof call[0] === 'string' && call[0].includes('/api/agent/register')
+    );
+    expect(registerCall).toBeDefined();
+
+    const requestBody = JSON.parse(registerCall![1].body);
+    expect(requestBody.osName).toBe('Ubuntu');
+    expect(requestBody.osVersion).toBe('22.04');
+    expect(requestBody.arch).toBe('x64');
   });
 });
 

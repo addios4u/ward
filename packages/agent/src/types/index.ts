@@ -13,5 +13,5 @@ export interface MetricsPayload {
   memory: { total: number; used: number; free: number };
   disk: Record<string, { total: number; used: number; free: number }>;
   network: Record<string, { rx: number; tx: number }>;
-  processes: Array<{ pid: number; name: string; cpu: number; memory: number }>;
+  processes: Array<{ pid: number; name: string; cpu: number; memory: number; status: string }>;
 }

@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { spawn } from 'child_process';
+import si from 'systeminformation';
 import {
   loadConfig,
   saveConfig,
@@ -55,8 +56,16 @@ async function registerWithServer(
   groupName?: string
 ): Promise<{ success: boolean; serverId?: string; error?: string }> {
   try {
+    // OS 정보 수집
+    const osData = await si.osInfo();
+    const osInfo = {
+      osName: osData.distro,
+      osVersion: osData.release,
+      arch: osData.arch,
+    };
+
     const tempClient = new HttpClient({ serverUrl, serverId: '' });
-    const result = await tempClient.register(hostname, groupName);
+    const result = await tempClient.register(hostname, groupName, osInfo);
     return { success: true, serverId: result.serverId };
   } catch (error) {
     return {

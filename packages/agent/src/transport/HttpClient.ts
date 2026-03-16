@@ -84,7 +84,11 @@ export class HttpClient {
   }
 
   // 서버 등록 (인증 헤더 없이)
-  async register(hostname: string, groupName?: string): Promise<{ serverId: string }> {
+  async register(
+    hostname: string,
+    groupName?: string,
+    osInfo?: { osName?: string; osVersion?: string; arch?: string }
+  ): Promise<{ serverId: string }> {
     const url = `${this.serverUrl}/api/agent/register`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -93,7 +97,7 @@ export class HttpClient {
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hostname, groupName }),
+        body: JSON.stringify({ hostname, groupName, ...osInfo }),
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
