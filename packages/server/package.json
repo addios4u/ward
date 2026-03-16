@@ -1,6 +1,7 @@
 {
   "name": "@ward/server",
   "version": "0.1.0",
+  "license": "MIT",
   "private": true,
   "description": "Ward 중앙 백엔드 서버",
   "main": "dist/index.js",

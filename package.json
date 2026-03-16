@@ -1,6 +1,7 @@
 {
   "name": "ward",
   "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Self-hosted 서버 모니터링 시스템",
   "scripts": {
