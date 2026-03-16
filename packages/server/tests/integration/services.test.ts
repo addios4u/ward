@@ -65,6 +65,7 @@ const mockDb = {
   where: vi.fn().mockReturnThis(),
   groupBy: vi.fn().mockReturnThis(),
   orderBy: vi.fn().mockReturnThis(),
+  innerJoin: vi.fn().mockReturnThis(),
   limit: vi.fn().mockResolvedValue([]),
   insert: vi.fn().mockReturnThis(),
   values: vi.fn().mockReturnThis(),
@@ -98,6 +99,20 @@ vi.mock('../../src/db/index.js', () => ({
       serverId: 'serverId',
       collectedAt: 'collectedAt',
       status: 'status',
+    },
+    services: {
+      id: 'id',
+      serverId: 'serverId',
+      name: 'name',
+      type: 'type',
+      config: 'config',
+      status: 'status',
+      pid: 'pid',
+      restartCount: 'restartCount',
+      startedAt: 'startedAt',
+      updatedAt: 'updatedAt',
+      cpuUsage: 'cpuUsage',
+      memUsage: 'memUsage',
     },
     users: { id: 'id', email: 'email', passwordHash: 'passwordHash', createdAt: 'createdAt' },
   },
@@ -138,6 +153,7 @@ function resetMockDb() {
   mockDb.where.mockReset().mockReturnThis();
   mockDb.groupBy.mockReset().mockReturnThis();
   mockDb.orderBy.mockReset().mockReturnThis();
+  mockDb.innerJoin.mockReset().mockReturnThis();
   mockDb.limit.mockReset().mockResolvedValue([]);
   mockDb.insert.mockReset().mockReturnThis();
   mockDb.values.mockReset().mockReturnThis();
@@ -150,39 +166,27 @@ describe('GET /api/services', () => {
     resetMockDb();
   });
 
-  it('각 서버의 최신 프로세스 목록을 반환해야 한다', async () => {
-    // 쿼리 순서:
-    // 1. select().from().orderBy()                         → 서버 목록
-    // 2. select().from().where().orderBy().limit(1)        → 최신 collectedAt
-    // 3. select().from().where(and(...))                   → 프로세스 목록 (where가 terminal, 직접 await)
-
-    const collectedAt = new Date('2024-01-01T12:00:00Z');
-
-    mockDb.orderBy
-      .mockResolvedValueOnce([        // 1번: 서버 목록
-        { id: 'server-uuid-1', name: '웹 서버 1', hostname: 'web-01.example.com', status: 'online' },
-      ])
-      .mockReturnThis();              // 2번: orderBy 체인 (limit이 뒤에 옴)
-
-    mockDb.limit
-      .mockResolvedValueOnce([{ collectedAt }]);  // 2번: 최신 collectedAt
-
-    // 첫 번째 where: serverId 조건 → 체인 계속 (orderBy.limit 호출)
-    // 두 번째 where: and(serverId, collectedAt) → 직접 Promise resolve
-    mockDb.where
-      .mockReturnValueOnce(mockDb)                // 1번 where: 체인 계속
-      .mockResolvedValueOnce([                    // 2번 where: 프로세스 목록 직접 resolve
-        {
-          id: 1,
-          serverId: 'server-uuid-1',
-          pid: 1234,
-          name: 'node',
-          cpuUsage: 1.5,
-          memUsage: 102400,
-          status: 'running',
-          collectedAt,
-        },
-      ]);
+  it('등록된 서비스 목록을 flat 배열로 반환해야 한다', async () => {
+    // select().from().innerJoin().orderBy() → 서비스 목록
+    mockDb.orderBy.mockResolvedValueOnce([
+      {
+        id: 'svc-uuid-1',
+        serverId: 'server-uuid-1',
+        serverName: '웹 서버 1',
+        serverHostname: 'web-01.example.com',
+        serverStatus: 'online',
+        name: 'ward-4000',
+        type: 'exec',
+        config: { command: 'node dist/index.js' },
+        status: 'running',
+        pid: 1234,
+        restartCount: 0,
+        startedAt: new Date('2024-01-01T12:00:00Z'),
+        updatedAt: new Date('2024-01-01T12:00:00Z'),
+        cpuUsage: 1.5,
+        memUsage: 102400,
+      },
+    ]);
 
     const res = await request(app).get('/api/services');
 
@@ -190,15 +194,20 @@ describe('GET /api/services', () => {
     expect(res.body).toHaveProperty('services');
     expect(Array.isArray(res.body.services)).toBe(true);
     expect(res.body.services).toHaveLength(1);
-    expect(res.body.services[0]).toHaveProperty('serverId', 'server-uuid-1');
-    expect(res.body.services[0]).toHaveProperty('serverName', '웹 서버 1');
-    expect(res.body.services[0]).toHaveProperty('serverHostname', 'web-01.example.com');
-    expect(res.body.services[0]).toHaveProperty('serverStatus', 'online');
-    expect(Array.isArray(res.body.services[0].processes)).toBe(true);
+    expect(res.body.services[0]).toMatchObject({
+      serverId: 'server-uuid-1',
+      serverName: '웹 서버 1',
+      serverHostname: 'web-01.example.com',
+      serverStatus: 'online',
+      name: 'ward-4000',
+      type: 'exec',
+      status: 'running',
+      pid: 1234,
+    });
   });
 
-  it('서버가 없으면 빈 배열을 반환해야 한다', async () => {
-    mockDb.orderBy.mockResolvedValueOnce([]); // 서버 목록 빈 배열
+  it('서비스가 없으면 빈 배열을 반환해야 한다', async () => {
+    mockDb.orderBy.mockResolvedValueOnce([]);
 
     const res = await request(app).get('/api/services');
 
@@ -207,87 +216,59 @@ describe('GET /api/services', () => {
     expect(res.body.services).toEqual([]);
   });
 
-  it('서버는 있지만 프로세스가 없으면 빈 processes를 반환해야 한다', async () => {
-    mockDb.orderBy
-      .mockResolvedValueOnce([        // 서버 목록
-        { id: 'server-uuid-1', name: '웹 서버 1', hostname: 'web-01.example.com', status: 'online' },
-      ])
-      .mockReturnThis();
-
-    mockDb.limit.mockResolvedValueOnce([]);  // collectedAt 없음 → 프로세스 없음
+  it('여러 서버의 서비스를 함께 반환해야 한다', async () => {
+    mockDb.orderBy.mockResolvedValueOnce([
+      {
+        id: 'svc-1', serverId: 'server-1', serverName: '서버 A', serverHostname: 'a.example.com',
+        serverStatus: 'online', name: 'api', type: 'exec', config: {}, status: 'running',
+        pid: 100, restartCount: 0, startedAt: null, updatedAt: new Date(), cpuUsage: null, memUsage: null,
+      },
+      {
+        id: 'svc-2', serverId: 'server-2', serverName: '서버 B', serverHostname: 'b.example.com',
+        serverStatus: 'online', name: 'worker', type: 'exec', config: {}, status: 'stopped',
+        pid: null, restartCount: 2, startedAt: null, updatedAt: new Date(), cpuUsage: null, memUsage: null,
+      },
+    ]);
 
     const res = await request(app).get('/api/services');
 
     expect(res.status).toBe(200);
-    expect(res.body.services[0].processes).toEqual([]);
+    expect(res.body.services).toHaveLength(2);
+    expect(res.body.services[0].serverName).toBe('서버 A');
+    expect(res.body.services[1].serverName).toBe('서버 B');
   });
 
-  it('프로세스에 status 필드가 포함되어야 한다', async () => {
-    const collectedAt = new Date('2024-01-01T12:00:00Z');
-
-    mockDb.orderBy
-      .mockResolvedValueOnce([
-        { id: 'server-uuid-1', name: '웹 서버 1', hostname: 'web-01.example.com', status: 'online' },
-      ])
-      .mockReturnThis();
-
-    mockDb.limit.mockResolvedValueOnce([{ collectedAt }]);
-
-    mockDb.where
-      .mockReturnValueOnce(mockDb)
-      .mockResolvedValueOnce([
-        {
-          id: 1,
-          serverId: 'server-uuid-1',
-          pid: 5678,
-          name: 'nginx',
-          cpuUsage: 0.5,
-          memUsage: 51200,
-          status: 'sleeping',
-          collectedAt,
-        },
-      ]);
+  it('cpuUsage, memUsage가 null이면 null로 반환해야 한다', async () => {
+    mockDb.orderBy.mockResolvedValueOnce([
+      {
+        id: 'svc-1', serverId: 'server-1', serverName: '서버 A', serverHostname: 'a.example.com',
+        serverStatus: 'online', name: 'api', type: 'exec', config: {}, status: 'running',
+        pid: 100, restartCount: 0, startedAt: null, updatedAt: new Date(), cpuUsage: null, memUsage: null,
+      },
+    ]);
 
     const res = await request(app).get('/api/services');
 
     expect(res.status).toBe(200);
-    expect(res.body.services[0].processes[0]).toMatchObject({
-      pid: 5678,
-      name: 'nginx',
-      status: 'sleeping',
-    });
+    expect(res.body.services[0].cpuUsage).toBeNull();
+    expect(res.body.services[0].memUsage).toBeNull();
   });
 
-  it('프로세스 status가 null이면 unknown으로 반환해야 한다', async () => {
-    const collectedAt = new Date('2024-01-01T12:00:00Z');
-
-    mockDb.orderBy
-      .mockResolvedValueOnce([
-        { id: 'server-uuid-1', name: '웹 서버 1', hostname: 'web-01.example.com', status: 'online' },
-      ])
-      .mockReturnThis();
-
-    mockDb.limit.mockResolvedValueOnce([{ collectedAt }]);
-
-    mockDb.where
-      .mockReturnValueOnce(mockDb)
-      .mockResolvedValueOnce([
-        {
-          id: 1,
-          serverId: 'server-uuid-1',
-          pid: 9999,
-          name: 'python',
-          cpuUsage: 2.0,
-          memUsage: 204800,
-          status: null,
-          collectedAt,
-        },
-      ]);
+  it('startedAt이 Date이면 ISO 문자열로 변환해야 한다', async () => {
+    const startedAt = new Date('2024-06-01T09:00:00Z');
+    mockDb.orderBy.mockResolvedValueOnce([
+      {
+        id: 'svc-1', serverId: 'server-1', serverName: '서버 A', serverHostname: 'a.example.com',
+        serverStatus: 'online', name: 'api', type: 'exec', config: {}, status: 'running',
+        pid: 100, restartCount: 0, startedAt, updatedAt: new Date('2024-06-01T09:00:00Z'),
+        cpuUsage: 0.5, memUsage: 51200,
+      },
+    ]);
 
     const res = await request(app).get('/api/services');
 
     expect(res.status).toBe(200);
-    expect(res.body.services[0].processes[0].status).toBe('unknown');
+    expect(res.body.services[0].startedAt).toBe('2024-06-01T09:00:00.000Z');
   });
 });
 
