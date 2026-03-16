@@ -21,7 +21,7 @@ export interface Server {
     cpuUsage: number | null;
     memTotal: number | null;
     memUsed: number | null;
-    diskUsage: Record<string, { total: number; used: number; free: number }> | null;
+    diskUsage: Record<string, { total: number; used: number; free: number; usagePercent: number }> | null;
     loadAvg: number[] | null;
   } | null;
 }
@@ -34,7 +34,7 @@ export interface Metric {
   cpuUsage: number | null;
   memTotal: number | null;
   memUsed: number | null;
-  diskUsage: Record<string, { total: number; used: number; free: number }> | null;
+  diskUsage: Record<string, { total: number; used: number; free: number; usagePercent: number }> | null;
   networkIo: Record<string, { rx: number; tx: number }> | null;
   loadAvg: number[] | null;
 }
