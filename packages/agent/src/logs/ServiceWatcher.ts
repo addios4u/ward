@@ -237,9 +237,13 @@ export class ServiceWatcher extends EventEmitter {
     const entry = this.entries.get(name);
     if (!entry || !entry.config) return;
     const config = entry.config;
+    // 재시작 횟수 누적: 기존 횟수 + 1 (수동 재시작도 카운트)
+    const nextRestartCount = (entry.restartCount ?? 0) + 1;
     this.unwatch(name);
     setTimeout(() => {
       this.watch(config);
+      const newEntry = this.entries.get(name);
+      if (newEntry) newEntry.restartCount = nextRestartCount;
     }, 500);
   }
 
