@@ -81,6 +81,8 @@ pnpm stop
 ### 4. 에이전트 설치 (모니터링 대상 서버)
 
 ```bash
+npm install -g @devskeo/ward-agent
+
 # 에이전트 설정
 ward config set --server-url http://your-ward-server:4000
 
