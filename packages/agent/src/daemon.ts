@@ -291,26 +291,19 @@ process.on('SIGUSR1', () => {
   syncServicesToServer().catch(err => console.error('서비스 동기화 오류:', err));
 });
 
-// 종료 시그널 처리
-process.on('SIGTERM', () => {
+// 종료 시그널 처리 (자식 프로세스가 완전히 종료될 때까지 대기 후 exit)
+const shutdown = () => {
   console.log('에이전트 데몬 종료 중...');
   clearInterval(metricsInterval);
   clearInterval(heartbeatInterval);
   reconnectManager?.destroy();
-  serviceWatcher?.unwatchAll();
   void logForwarder?.stop();
-  process.exit(0);
-});
+  void (serviceWatcher?.unwatchAllAndWait() ?? Promise.resolve()).then(() => process.exit(0));
+};
 
-process.on('SIGINT', () => {
-  console.log('에이전트 데몬 인터럽트...');
-  clearInterval(metricsInterval);
-  clearInterval(heartbeatInterval);
-  reconnectManager?.destroy();
-  serviceWatcher?.unwatchAll();
-  void logForwarder?.stop();
-  process.exit(0);
-});
+process.on('SIGTERM', shutdown);
+
+process.on('SIGINT', shutdown);
 
 // 데몬 실행 (직접 실행 시)
 if (process.env['WARD_DAEMON'] === 'true') {

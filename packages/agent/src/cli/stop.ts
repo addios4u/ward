@@ -34,6 +34,13 @@ export async function stop(): Promise<void> {
         console.error('PID 파일이 손상되었습니다.');
       } else {
         process.kill(pid, 'SIGTERM');
+
+        // 데몬(및 자식 프로세스)이 완전히 종료될 때까지 대기 (최대 8초)
+        const deadline = Date.now() + 8000;
+        while (Date.now() < deadline) {
+          await new Promise(r => setTimeout(r, 300));
+          try { process.kill(pid, 0); } catch { break; } // 프로세스 사라지면 종료
+        }
         console.log(`에이전트가 중지되었습니다. (PID: ${pid})`);
       }
     } catch (error) {
