@@ -18,8 +18,8 @@ fi
 
 echo "Stopping Ward (PID: $PID)..."
 
-# 에이전트 프로세스 종료 (에이전트가 Ward 서버 자식 프로세스도 종료함)
-kill -TERM "$PID"
+# 에이전트 및 자식 프로세스 전체에 SIGTERM 전송
+kill -TERM "$PID" 2>/dev/null || true
 
 # 최대 10초 대기
 for i in $(seq 1 10); do
@@ -32,7 +32,12 @@ done
 # 아직 살아있으면 강제 종료
 if kill -0 "$PID" 2>/dev/null; then
   echo "Force killing Ward..."
-  kill -KILL "$PID"
+  kill -KILL "$PID" 2>/dev/null || true
+fi
+
+# 자식 프로세스 잔존 여부 확인 후 강제 종료 (안전망)
+if command -v pkill >/dev/null 2>&1; then
+  pkill -KILL -P "$PID" 2>/dev/null || true
 fi
 
 rm -f "$PID_FILE"

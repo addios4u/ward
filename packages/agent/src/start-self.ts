@@ -243,9 +243,9 @@ async function main() {
     clearInterval(metricsTimer);
     clearInterval(heartbeatTimer);
     reconnectManager.destroy();
-    serviceWatcher.unwatchAll();
     void logForwarder.stop();
-    process.exit(0);
+    // 자식 프로세스가 실제로 종료될 때까지 대기 후 종료
+    serviceWatcher.unwatchAllAndWait().then(() => process.exit(0));
   };
 
   process.on('SIGTERM', shutdown);

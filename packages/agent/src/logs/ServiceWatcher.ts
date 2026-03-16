@@ -100,6 +100,32 @@ export class ServiceWatcher extends EventEmitter {
     }
   }
 
+  // 모든 감시 해제 후 자식 프로세스가 실제로 종료될 때까지 대기
+  async unwatchAllAndWait(timeoutMs = 5000): Promise<void> {
+    const processes: ChildProcess[] = [];
+    for (const entry of this.entries.values()) {
+      if (entry.process && entry.process.exitCode === null) {
+        processes.push(entry.process);
+      }
+    }
+
+    this.unwatchAll();
+
+    if (processes.length === 0) return;
+
+    await Promise.race([
+      Promise.all(
+        processes.map(
+          (p) => new Promise<void>((resolve) => {
+            if (p.exitCode !== null) { resolve(); return; }
+            p.once('close', () => resolve());
+          })
+        )
+      ),
+      new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+    ]);
+  }
+
   // 감시 중인 서비스 이름 목록 (테스트용)
   getWatchedNames(): string[] {
     return Array.from(this.entries.keys());
