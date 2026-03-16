@@ -2,6 +2,8 @@
 
 Self-hosted 서버 모니터링 시스템. 중소규모 팀이 자체 인프라에 직접 설치해서 운영하는 방식의 서버 모니터링 도구입니다.
 
+<a href="https://www.buymeacoffee.com/addios4u" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="36"></a>
+
 ![서버 목록](screenshots/01.png)
 
 ## 주요 기능
@@ -58,6 +60,24 @@ cp .env.sample .env
 # .env 파일에서 비밀번호와 설정을 변경하세요
 
 docker-compose up -d
+```
+
+### 1-b. Docker 없이 직접 실행
+
+```bash
+git clone https://github.com/your-username/ward.git
+cd ward
+
+pnpm install
+
+cp .env.sample .env
+# .env 파일에서 비밀번호와 설정을 변경하세요
+
+# 빌드 + 서버/웹/에이전트 한 번에 시작
+pnpm start
+
+# 중지
+pnpm stop
 ```
 
 ### 2. 에이전트 설치 (모니터링 대상 서버)
