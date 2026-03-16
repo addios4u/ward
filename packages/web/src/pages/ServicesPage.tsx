@@ -4,6 +4,7 @@ import { servicesApi } from '@/lib/api';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
+import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal';
 import type { ServicesResponse, WardService } from '@/types';
 
 const POLL_INTERVAL_MS = 30_000;
@@ -60,6 +61,8 @@ export function ServicesPage() {
   const [data, setData] = useState<ServicesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ serverId: string; name: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const fetchServices = useCallback(() => {
     servicesApi
@@ -75,16 +78,20 @@ export function ServicesPage() {
       });
   }, []);
 
-  const handleDeleteService = async (serverId: string, name: string) => {
-    if (!confirm(`"${name}" 서비스를 삭제하시겠습니까?`)) return;
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
     try {
-      await servicesApi.delete(serverId, name);
+      await servicesApi.delete(deleteTarget.serverId, deleteTarget.name);
       setData(prev => prev ? {
         ...prev,
-        services: prev.services.filter(s => !(s.serverId === serverId && s.name === name)),
+        services: prev.services.filter(s => !(s.serverId === deleteTarget.serverId && s.name === deleteTarget.name)),
       } : prev);
+      setDeleteTarget(null);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : '삭제 실패');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -206,7 +213,7 @@ export function ServicesPage() {
                         <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                           {isIssue && (
                             <button
-                              onClick={() => void handleDeleteService(svc.serverId, svc.name)}
+                              onClick={() => setDeleteTarget({ serverId: svc.serverId, name: svc.name })}
                               className="px-2 py-0.5 text-xs bg-red-500 hover:bg-red-600 text-white rounded"
                             >
                               삭제
@@ -221,6 +228,15 @@ export function ServicesPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          title={`"${deleteTarget.name}" 서비스를 삭제하시겠습니까?`}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteTarget(null)}
+          loading={deleteLoading}
+        />
       )}
     </div>
   );

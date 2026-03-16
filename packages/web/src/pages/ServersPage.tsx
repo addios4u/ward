@@ -3,6 +3,7 @@ import { serversApi } from '@/lib/api';
 import { ServerCard } from '@/components/dashboard/ServerCard';
 import { Spinner } from '@/components/ui/Spinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
+import { DeleteConfirmModal } from '@/components/ui/DeleteConfirmModal';
 import type { Server } from '@/types';
 
 const POLL_INTERVAL_MS = 30_000;
@@ -58,14 +59,20 @@ export function ServersPage() {
   const [servers, setServers] = useState<Server[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const handleDeleteServer = async (id: string, name: string) => {
-    if (!confirm(`"${name}" 서버를 삭제하시겠습니까?\n에이전트가 재시작되면 자동으로 재등록됩니다.`)) return;
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
     try {
-      await serversApi.delete(id);
-      setServers(prev => prev.filter(s => s.id !== id));
+      await serversApi.delete(deleteTarget.id);
+      setServers(prev => prev.filter(s => s.id !== deleteTarget.id));
+      setDeleteTarget(null);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : '삭제 실패');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -146,7 +153,7 @@ export function ServersPage() {
                         <button
                           onClick={(e) => {
                             e.preventDefault();
-                            void handleDeleteServer(server.id, server.name);
+                            setDeleteTarget({ id: server.id, name: server.name });
                           }}
                           className="absolute top-2 right-2 z-20 px-2 py-0.5 text-xs bg-red-500 hover:bg-red-600 text-white rounded shadow"
                         >
@@ -160,6 +167,16 @@ export function ServersPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          title={`"${deleteTarget.name}" 서버를 삭제하시겠습니까?`}
+          description="에이전트가 재시작되면 자동으로 재등록됩니다."
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteTarget(null)}
+          loading={deleteLoading}
+        />
       )}
     </div>
   );
