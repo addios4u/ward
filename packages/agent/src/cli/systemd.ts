@@ -14,6 +14,8 @@ function getUserServicePath(): string {
 }
 
 // Linux 전용: systemd user 서비스 등록 (root 권한 불필요)
+// 현재 세션에서는 이미 데몬이 실행 중이므로 start는 하지 않음 (충돌 방지)
+// 재부팅 후 자동 시작만 설정
 export async function setupSystemd(serverUrl: string, groupName?: string): Promise<void> {
   const nameArg = groupName ? ` --name "${groupName}"` : '';
   const serviceContent = `[Unit]
@@ -36,7 +38,7 @@ WantedBy=default.target
     fs.writeFileSync(servicePath, serviceContent, 'utf-8');
     await execAsync('systemctl --user daemon-reload');
     await execAsync('systemctl --user enable ward-agent');
-    await execAsync('systemctl --user start ward-agent');
+    // 현재 데몬은 이미 실행 중이므로 start 생략 (재부팅 후 자동 시작)
     console.log('systemd user 서비스가 등록되었습니다. (재부팅 후 자동 시작)');
   } catch (error) {
     console.warn('systemd 서비스 등록 실패:', error instanceof Error ? error.message : error);

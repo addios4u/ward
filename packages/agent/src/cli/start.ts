@@ -118,10 +118,12 @@ export async function start(serverUrl: string, options: { name?: string } = {}):
 
   // 7. 데몬 프로세스 시작
   const daemonScript = path.join(__dirname, '../daemon.js');
+  const logPath = path.join(wardDir, 'daemon.log');
+  const logFd = fs.openSync(logPath, 'a');
 
   const child = spawn('node', [daemonScript], {
     detached: true,
-    stdio: 'ignore',
+    stdio: ['ignore', logFd, logFd],
     env: { ...process.env, WARD_DAEMON: 'true' },
   });
 
