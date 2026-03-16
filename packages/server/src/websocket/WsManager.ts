@@ -188,13 +188,28 @@ export class WsManager {
   /** Redis 채널명을 기반으로 WebSocket 아웃바운드 메시지 목록 생성 */
   private buildOutboundMessages(redisChannel: string, message: string): WsOutboundMessage[] {
     try {
-      // ward:metrics:{serverId}
+      // ward:metrics:{serverId} — 에이전트 형식(MetricsPayload)을 DB 형식(Metric)으로 정규화
       const metricsMatch = redisChannel.match(/^ward:metrics:(.+)$/);
       if (metricsMatch) {
+        const raw = JSON.parse(message) as {
+          collectedAt?: string;
+          cpu?: { usage?: number; loadAvg?: number[] };
+          memory?: { total?: number; used?: number };
+          disk?: Record<string, unknown>;
+          network?: Record<string, unknown>;
+        };
         return [{
           type: 'metrics',
           serverId: metricsMatch[1],
-          data: JSON.parse(message),
+          data: {
+            collectedAt: raw.collectedAt ?? null,
+            cpuUsage: raw.cpu?.usage ?? null,
+            memTotal: raw.memory?.total ?? null,
+            memUsed: raw.memory?.used ?? null,
+            diskUsage: raw.disk ?? null,
+            networkIo: raw.network ?? null,
+            loadAvg: raw.cpu?.loadAvg ?? null,
+          },
         }];
       }
 

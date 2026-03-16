@@ -103,7 +103,8 @@ export function ServerDetailPage() {
 
   useWebSocket(handleMessage, serverId);
 
-  const latest = metrics[metrics.length - 1];
+  // 히스토리 마지막 메트릭, 없으면 status API의 latestMetric을 fallback으로 사용
+  const latest = metrics[metrics.length - 1] ?? statusData?.latestMetric ?? null;
 
   const tabActiveCls = 'text-blue-600 border-b-2 border-blue-600 font-medium';
   const tabInactiveCls = 'text-gray-500 hover:text-gray-700';

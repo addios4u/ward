@@ -138,16 +138,30 @@ describe('WsManager', () => {
       serverId: 'server-1',
     })));
 
-    // Redis에서 메트릭 메시지 수신 시뮬레이션
-    const metricsData = JSON.stringify({ cpu: 45.5 });
+    // Redis에서 에이전트 형식(MetricsPayload) 메트릭 메시지 수신 시뮬레이션
+    const metricsData = JSON.stringify({
+      collectedAt: '2024-01-01T00:00:00Z',
+      cpu: { usage: 45.5, loadAvg: [1.2, 1.0, 0.9] },
+      memory: { total: 8589934592, used: 4294967296, free: 4294967296 },
+      disk: { '/': { total: 100000, used: 50000, free: 50000 } },
+      network: { eth0: { rx: 1000, tx: 2000 } },
+    });
     mockSubEmitter.emit('message', 'ward:metrics:server-1', metricsData);
 
-    // WebSocket 클라이언트에 메시지 전송 확인
+    // WebSocket 클라이언트에 DB 형식(Metric)으로 정규화된 메시지 전송 확인
     expect(mockWsClient.send).toHaveBeenCalledWith(
       JSON.stringify({
         type: 'metrics',
         serverId: 'server-1',
-        data: { cpu: 45.5 },
+        data: {
+          collectedAt: '2024-01-01T00:00:00Z',
+          cpuUsage: 45.5,
+          memTotal: 8589934592,
+          memUsed: 4294967296,
+          diskUsage: { '/': { total: 100000, used: 50000, free: 50000 } },
+          networkIo: { eth0: { rx: 1000, tx: 2000 } },
+          loadAvg: [1.2, 1.0, 0.9],
+        },
       })
     );
   });
