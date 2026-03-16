@@ -14,6 +14,16 @@ export interface Server {
   status: ServerStatus;
   lastSeenAt: string | null;
   createdAt: string;
+  osName: string | null;      // OS 이름 (예: Ubuntu)
+  osVersion: string | null;   // OS 버전 (예: 22.04)
+  arch: string | null;        // CPU 아키텍처 (예: x86_64)
+  latestMetrics: {            // 최신 메트릭 (항상 normalized 형식)
+    cpuUsage: number | null;
+    memTotal: number | null;
+    memUsed: number | null;
+    diskUsage: Record<string, { total: number; used: number; free: number }> | null;
+    loadAvg: number[] | null;
+  } | null;
 }
 
 // 메트릭 타입
@@ -94,11 +104,14 @@ export interface WsMessage {
   data: unknown;
 }
 
-// 로그 서비스 타입 (ward로 모니터링되는 앱/로그 소스)
-export interface LogService {
-  source: string;
-  lastLoggedAt: string | null;
-  logCount: number;
+// 프로세스 타입 (서비스 페이지용 - 실행 중인 앱 프로세스)
+export interface ServiceProcess {
+  pid: number;
+  name: string;
+  cpuUsage: number | null;
+  memUsage: number | null;
+  status: string;          // 'running', 'sleeping' 등
+  collectedAt: string;
 }
 
 // 서비스 서버 타입
@@ -107,7 +120,7 @@ export interface ServiceServer {
   serverName: string;
   serverHostname: string;
   serverStatus: ServerStatus;
-  services: LogService[];
+  processes: ServiceProcess[];  // services → processes로 변경
 }
 
 // 서비스 목록 응답 타입

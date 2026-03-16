@@ -22,6 +22,10 @@ const mockServerBase = {
   status: 'online' as const,
   lastSeenAt: null,
   createdAt: '2024-01-01',
+  osName: null,
+  osVersion: null,
+  arch: null,
+  latestMetrics: null,
 };
 
 describe('authApi', () => {
@@ -168,6 +172,33 @@ describe('serversApi', () => {
 
     const res = await serversApi.list();
     expect(res.servers[0].groupName).toBeNull();
+  });
+
+  it('서버 목록 응답에 latestMetrics 필드가 포함되어야 한다', async () => {
+    const mockServers = [
+      {
+        ...mockServerBase,
+        osName: 'Ubuntu',
+        osVersion: '22.04',
+        arch: 'x86_64',
+        latestMetrics: {
+          cpuUsage: 45.2,
+          memTotal: 8589934592,
+          memUsed: 4294967296,
+          diskUsage: { '/': { total: 107374182400, used: 53687091200, free: 53687091200 } },
+          loadAvg: [1.5, 1.2, 0.9],
+        },
+      },
+    ];
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ servers: mockServers }),
+    });
+
+    const res = await serversApi.list();
+    expect(res.servers[0].osName).toBe('Ubuntu');
+    expect(res.servers[0].latestMetrics?.cpuUsage).toBe(45.2);
+    expect(res.servers[0].latestMetrics?.memTotal).toBe(8589934592);
   });
 
   it('메트릭 조회 시 올바른 URL을 호출해야 한다', async () => {
