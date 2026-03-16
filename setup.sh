@@ -111,16 +111,22 @@ if [ -f "$HOME/.npmrc" ]; then
     sed -i '/^globalconfig=/d' "$HOME/.npmrc"
 fi
 
-# Load nvm
+# Load nvm (set -e 일시 해제: nvm 소싱 시 non-zero 반환 가능)
+set +e
 . "$NVM_DIR/nvm.sh"
+set -e
 
-# Node.js LTS install
-if command -v node &> /dev/null; then
-    echo "[2/4] Node.js already installed: $(node -v), skipping..."
+# Node.js v22 install
+NODE_MAJOR=22
+if node -v 2>/dev/null | grep -q "^v${NODE_MAJOR}\."; then
+    echo "[2/4] Node.js v${NODE_MAJOR} already installed: $(node -v), skipping..."
 else
-    echo "[2/4] Installing Node.js LTS..."
-    nvm install --lts
-    nvm alias default lts/*
+    echo "[2/4] Installing Node.js v${NODE_MAJOR}..."
+    set +e
+    nvm install ${NODE_MAJOR}
+    nvm alias default ${NODE_MAJOR}
+    nvm use ${NODE_MAJOR}
+    set -e
 fi
 
 # pnpm install
@@ -213,18 +219,8 @@ else
     echo "[Done] User already in docker group"
 fi
 
-# Add docker group auto-apply to .bashrc
-DOCKER_BASHRC_SNIPPET='# Auto-apply docker group
-if command -v docker &> /dev/null && getent group docker | grep -q "\b$USER\b" && ! id -Gn | grep -q "\bdocker\b"; then
-    exec newgrp docker
-fi'
-
 if ! grep -q "Auto-apply docker group" ~/.bashrc 2>/dev/null; then
-    echo "[+] Adding docker group auto-apply to .bashrc..."
-    echo "" >> ~/.bashrc
-    echo "$DOCKER_BASHRC_SNIPPET" >> ~/.bashrc
-else
-    echo "[Done] Docker group auto-apply already in .bashrc"
+    echo "[+] Skipping docker group snippet in .bashrc (re-login 방식 사용)"
 fi
 
 echo ""
@@ -340,19 +336,7 @@ else
     echo "  - nvm configuration already in .zshrc"
 fi
 
-# Add docker group auto-apply to .zshrc if not exists
-DOCKER_ZSHRC_SNIPPET='# Auto-apply docker group
-if command -v docker &> /dev/null && getent group docker | grep -q "\b$USER\b" && ! id -Gn | grep -q "\bdocker\b"; then
-    exec newgrp docker
-fi'
-
-if ! grep -q "Auto-apply docker group" ~/.zshrc 2>/dev/null; then
-    echo "" >> ~/.zshrc
-    echo "$DOCKER_ZSHRC_SNIPPET" >> ~/.zshrc
-    echo "  - Added docker group auto-apply to .zshrc"
-else
-    echo "  - Docker group auto-apply already in .zshrc"
-fi
+echo "  - Docker group will be applied after re-login"
 
 echo ""
 echo "[Done] Oh My Zsh setup completed"
@@ -476,17 +460,19 @@ echo "  - zsh-syntax-highlighting"
 echo ""
 
 # =============================================================================
-# Docker 그룹 적용 (모든 설치 완료 후 마지막 단계)
+# Docker 그룹 안내 (exec 대신 re-login 안내)
 # =============================================================================
 
 if ! id -Gn | grep -q '\bdocker\b'; then
     echo ""
     echo "=========================================="
-    echo "   Docker 그룹 적용 중..."
+    echo "   [주의] Docker 그룹 적용 필요"
     echo "=========================================="
     echo ""
-    echo "docker 그룹이 현재 세션에 적용되지 않았습니다."
-    echo "새 그룹 적용을 위해 세션을 전환합니다 (newgrp docker)..."
+    echo "docker 그룹이 현재 세션에 아직 적용되지 않았습니다."
+    echo "다음 중 하나를 실행하세요:"
     echo ""
-    exec newgrp docker
+    echo "  1) 로그아웃 후 재접속"
+    echo "  2) 현재 터미널에서 즉시 적용: newgrp docker"
+    echo ""
 fi
