@@ -120,12 +120,15 @@ vi.mock('../../src/db/index.js', () => {
         country: 'country',
         city: 'city',
         isp: 'isp',
+        osName: 'osName',
+        osVersion: 'osVersion',
+        arch: 'arch',
         status: 'status',
         lastSeenAt: 'lastSeenAt',
         createdAt: 'createdAt',
       },
       metrics: { serverId: 'serverId' },
-      processes: { serverId: 'serverId' },
+      processes: { serverId: 'serverId', status: 'status' },
       logs: { serverId: 'serverId' },
     },
     closePool: vi.fn(),
@@ -230,6 +233,33 @@ describe('POST /api/agent/register', () => {
     expect(res.body.serverId).toBe('server-uuid-existing');
   });
 
+  it('osName, osVersion, arch를 포함해서 등록할 수 있어야 한다', async () => {
+    const { getDb } = await import('../../src/db/index.js');
+    const mockDb = getDb();
+
+    const makeWhereResult = (resolveValue: any[]) => {
+      const p = Promise.resolve(resolveValue) as any;
+      p.limit = vi.mocked(mockDb.limit);
+      return p;
+    };
+
+    vi.mocked(mockDb.limit).mockResolvedValueOnce([]);
+    vi.mocked(mockDb.where).mockImplementationOnce(() => makeWhereResult([]));
+    vi.mocked(mockDb.returning).mockResolvedValueOnce([{ id: 'server-uuid-os' }]);
+
+    const res = await request(app)
+      .post('/api/agent/register')
+      .send({
+        hostname: 'os-server.example.com',
+        osName: 'Ubuntu',
+        osVersion: '22.04',
+        arch: 'x64',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toHaveProperty('serverId');
+  });
+
   it('groupName을 포함해서 등록할 수 있어야 한다', async () => {
     const { getDb } = await import('../../src/db/index.js');
     const mockDb = getDb();
@@ -302,6 +332,26 @@ describe('POST /api/agent/metrics', () => {
 
     expect(res.status).toBe(400);
   });
+
+  it('process status 필드를 포함한 메트릭을 처리해야 한다', async () => {
+    const payload = {
+      collectedAt: '2024-01-01T00:00:00Z',
+      cpu: { usage: 30.0, loadAvg: [0.5, 0.4, 0.3] },
+      memory: { total: 8000000000, used: 2000000000, free: 6000000000 },
+      processes: [
+        { pid: 1234, name: 'node', cpu: 2.5, memory: 100000, status: 'running' },
+        { pid: 5678, name: 'nginx', cpu: 0.1, memory: 20000, status: 'sleeping' },
+      ],
+    };
+
+    const res = await request(app)
+      .post('/api/agent/metrics')
+      .set('x-ward-server-id', 'server-uuid-1')
+      .send(payload);
+
+    expect(res.status).toBe(201);
+    expect(res.body.ok).toBe(true);
+  });
 });
 
 describe('POST /api/agent/heartbeat', () => {
@@ -331,6 +381,22 @@ describe('POST /api/agent/heartbeat', () => {
       .send({});
 
     expect(res.status).toBe(400);
+  });
+
+  it('osName, osVersion, arch를 포함한 heartbeat를 처리해야 한다', async () => {
+    const res = await request(app)
+      .post('/api/agent/heartbeat')
+      .set('x-ward-server-id', 'server-uuid-1')
+      .send({
+        sentAt: '2024-01-01T00:00:00Z',
+        hostname: 'test.example.com',
+        osName: 'Ubuntu',
+        osVersion: '22.04',
+        arch: 'x64',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
   });
 });
 

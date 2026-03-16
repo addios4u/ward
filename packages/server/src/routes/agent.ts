@@ -12,7 +12,13 @@ const router: Router = Router();
 // POST /api/agent/register — 에이전트 자동 등록 (인증 없음)
 router.post('/register', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { hostname, groupName } = req.body as { hostname?: string; groupName?: string };
+    const { hostname, groupName, osName, osVersion, arch } = req.body as {
+      hostname?: string;
+      groupName?: string;
+      osName?: string;
+      osVersion?: string;
+      arch?: string;
+    };
 
     if (!hostname) {
       res.status(400).json({ error: 'hostname은 필수입니다.' });
@@ -29,12 +35,15 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
       .limit(1);
 
     if (existing[0]) {
-      // groupName 업데이트
+      // groupName, OS 정보 업데이트
       await db
         .update(schema.servers)
         .set({
           groupName: groupName ?? null,
           status: 'unknown',
+          ...(osName !== undefined && { osName }),
+          ...(osVersion !== undefined && { osVersion }),
+          ...(arch !== undefined && { arch }),
         })
         .where(eq(schema.servers.id, existing[0].id));
 
@@ -49,6 +58,9 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
         hostname,
         groupName: groupName ?? null,
         status: 'unknown',
+        osName: osName ?? null,
+        osVersion: osVersion ?? null,
+        arch: arch ?? null,
       })
       .returning();
 
@@ -98,7 +110,7 @@ router.post('/metrics', async (req: Request, res: Response, next: NextFunction):
       memory?: { total?: number; used?: number; free?: number };
       disk?: Record<string, { total: number; used: number; free: number }>;
       network?: Record<string, { rx: number; tx: number }>;
-      processes?: Array<{ pid: number; name: string; cpu: number; memory: number }>;
+      processes?: Array<{ pid: number; name: string; cpu: number; memory: number; status?: string }>;
     };
 
     if (!body.collectedAt) {
@@ -137,6 +149,7 @@ router.post('/metrics', async (req: Request, res: Response, next: NextFunction):
           name: p.name,
           cpuUsage: p.cpu,
           memUsage: p.memory,
+          status: p.status ?? null,
         }))
       );
     }
@@ -205,10 +218,13 @@ router.post('/heartbeat', async (req: Request, res: Response, next: NextFunction
     const server = (req as IdentifiedRequest).server;
     const db = getDb();
 
-    const { ipInfo } = req.body as {
+    const { ipInfo, osName, osVersion, arch } = req.body as {
       sentAt?: string;
       hostname?: string;
       ipInfo?: { ip?: string; country?: string; city?: string; isp?: string };
+      osName?: string;
+      osVersion?: string;
+      arch?: string;
     };
 
     await db
@@ -220,6 +236,9 @@ router.post('/heartbeat', async (req: Request, res: Response, next: NextFunction
         ...(ipInfo?.country && { country: ipInfo.country }),
         ...(ipInfo?.city && { city: ipInfo.city }),
         ...(ipInfo?.isp && { isp: ipInfo.isp }),
+        ...(osName !== undefined && { osName }),
+        ...(osVersion !== undefined && { osVersion }),
+        ...(arch !== undefined && { arch }),
       })
       .where(eq(schema.servers.id, server.id));
 
