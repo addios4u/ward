@@ -104,28 +104,29 @@ export interface WsMessage {
   data: unknown;
 }
 
-// 프로세스 타입 (서비스 페이지용 - 실행 중인 앱 프로세스)
-export interface ServiceProcess {
-  pid: number;
-  name: string;
-  cpuUsage: number | null;
-  memUsage: number | null;
-  status: string;          // 'running', 'sleeping' 등
-  collectedAt: string;
-}
+// 서비스 상태 타입
+export type ServiceStatus = 'running' | 'stopped' | 'error' | 'unknown';
 
-// 서비스 서버 타입
-export interface ServiceServer {
+// ward 등록 서비스 타입 (pm2 방식)
+export interface WardService {
+  id: string;
   serverId: string;
   serverName: string;
   serverHostname: string;
   serverStatus: ServerStatus;
-  processes: ServiceProcess[];  // services → processes로 변경
+  name: string;
+  type: string;          // exec | file | journal | docker | pipe
+  config: Record<string, unknown>;
+  status: ServiceStatus;
+  pid: number | null;
+  restartCount: number;
+  startedAt: string | null;
+  updatedAt: string;
 }
 
 // 서비스 목록 응답 타입
 export interface ServicesResponse {
-  services: ServiceServer[];
+  services: WardService[];
 }
 
 // 관리자 계정 타입

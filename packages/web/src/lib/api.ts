@@ -109,8 +109,26 @@ export const serversApi = {
 
 // 서비스 API
 export const servicesApi = {
-  // 서비스 목록 조회
+  // 전체 서비스 목록 조회
   list: (): Promise<ServicesResponse> => apiFetch('/api/services'),
+
+  // 특정 서버의 서비스 목록 조회
+  listByServer: (serverId: string): Promise<ServicesResponse> =>
+    apiFetch(`/api/servers/${serverId}/services`),
+
+  // 특정 서비스의 로그 조회
+  getLogs: (
+    serverId: string,
+    serviceName: string,
+    options: { level?: string; limit?: number; offset?: number } = {}
+  ): Promise<LogsResponse> => {
+    const params = new URLSearchParams();
+    if (options.level) params.set('level', options.level);
+    if (options.limit !== undefined) params.set('limit', String(options.limit));
+    if (options.offset !== undefined) params.set('offset', String(options.offset));
+    const query = params.toString();
+    return apiFetch<LogsResponse>(`/api/servers/${serverId}/services/${serviceName}/logs${query ? `?${query}` : ''}`);
+  },
 };
 
 // 사용자 API
