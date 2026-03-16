@@ -28,28 +28,42 @@ export function createApp(): express.Application {
   app.set('trust proxy', 1);
 
   // 보안 헤더 (crossOriginResourcePolicy는 CORS로 별도 처리)
-  app.use(helmet({
-    crossOriginResourcePolicy: { policy: 'cross-origin' },
-  }));
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      contentSecurityPolicy: {
+        directives: {
+          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          'upgrade-insecure-requests': null, // HTTP 환경에서 HTTPS 강제 업그레이드 방지
+        },
+      },
+    }),
+  );
 
   // CORS: 인프라 단계(보안 그룹 등)에서 접근 제어하므로 모든 origin 허용
-  app.use(cors({
-    origin: true,
-    credentials: true,
-  }));
+  app.use(
+    cors({
+      origin: true,
+      credentials: true,
+    }),
+  );
 
   // HTTP access log (stdout → ServiceWatcher가 캡처해서 대시보드로 전달)
   // /api/agent/* 는 에이전트 내부 통신이므로 제외 — 포함 시 자기참조 피드백 루프 발생
-  app.use(morgan('combined', {
-    skip: (req) => req.path.startsWith('/api/agent'),
-  }));
+  app.use(
+    morgan('combined', {
+      skip: (req) => req.path.startsWith('/api/agent'),
+    }),
+  );
 
   app.use(express.json());
 
   // 세션 미들웨어 (express-session + connect-redis)
   const sessionSecret = config.session.secret;
   if (!sessionSecret && process.env.NODE_ENV === 'production') {
-    throw new Error('SESSION_SECRET 환경변수가 설정되지 않았습니다. 프로덕션 환경에서는 필수입니다.');
+    throw new Error(
+      'SESSION_SECRET 환경변수가 설정되지 않았습니다. 프로덕션 환경에서는 필수입니다.',
+    );
   }
 
   const store = new RedisStore({
@@ -58,26 +72,31 @@ export function createApp(): express.Application {
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  app.use((session as any)({
-    store,
-    name: 'ward.sid',
-    secret: sessionSecret || 'dev-secret-change-in-production',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
-    },
-  }));
+  app.use(
+    (session as any)({
+      store,
+      name: 'ward.sid',
+      secret: sessionSecret || 'dev-secret-change-in-production',
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
+      },
+    }),
+  );
 
   // rate-limit-redis 전용 클라이언트 (enableOfflineQueue: true로 연결 전 명령 큐잉)
   const ioRedis = getRateLimitClient();
-  const sendCommand = async (command: string, ...args: string[]): Promise<import('rate-limit-redis').RedisReply> => {
+  const sendCommand = async (
+    command: string,
+    ...args: string[]
+  ): Promise<import('rate-limit-redis').RedisReply> => {
     const method = (ioRedis as any)[command.toLowerCase()];
     if (typeof method === 'function') {
-      return await method.apply(ioRedis, args) as import('rate-limit-redis').RedisReply;
+      return (await method.apply(ioRedis, args)) as import('rate-limit-redis').RedisReply;
     }
     throw new Error(`Unknown Redis command: ${command}`);
   };
@@ -148,10 +167,12 @@ export function createApp(): express.Application {
   }
 
   // 에러 핸들러
-  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error('서버 오류:', err);
-    res.status(500).json({ error: '서버 내부 오류가 발생했습니다.' });
-  });
+  app.use(
+    (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      console.error('서버 오류:', err);
+      res.status(500).json({ error: '서버 내부 오류가 발생했습니다.' });
+    },
+  );
 
   return app;
 }
