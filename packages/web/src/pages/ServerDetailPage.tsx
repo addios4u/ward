@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { serversApi } from '@/lib/api';
 import { MetricsChart } from '@/components/dashboard/MetricsChart';
 import { LogViewer } from '@/components/dashboard/LogViewer';
@@ -95,12 +95,6 @@ export function ServerDetailPage() {
     <div className="flex gap-4 h-[calc(100vh-9.5rem)]">
       {/* 왼쪽: 서버 정보 + 메트릭 */}
       <div className="flex-1 min-w-0 overflow-y-auto space-y-4 pr-2">
-        <div>
-          <Link to="/" className="text-gray-400 hover:text-gray-600 text-sm">
-            ← 서버 목록
-          </Link>
-        </div>
-
         {statusError && <ErrorMessage message={statusError} onRetry={loadStatus} />}
 
         {statusData && (

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { servicesApi } from '@/lib/api';
 import { Spinner } from '@/components/ui/Spinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
@@ -20,7 +20,6 @@ function ServiceStatusDot({ status }: { status: string }) {
 
 export function ServiceDetailPage() {
   const { serverId, serviceName } = useParams<{ serverId: string; serviceName: string }>();
-  const navigate = useNavigate();
   const decodedName = serviceName ? decodeURIComponent(serviceName) : '';
 
   const [service, setService] = useState<WardService | null>(null);
@@ -127,13 +126,6 @@ export function ServiceDetailPage() {
     <div className="flex gap-4 h-[calc(100vh-9.5rem)]">
       {/* 왼쪽: 서비스 정보 */}
       <div className="flex-1 min-w-0 overflow-y-auto space-y-4 pr-2">
-        <button
-          onClick={() => navigate('/services')}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-        >
-          ← 서비스 목록
-        </button>
-
         {/* 서비스 정보 카드 */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
           <div className="flex items-center justify-between mb-4">
