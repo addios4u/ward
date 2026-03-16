@@ -4,7 +4,7 @@ Self-hosted 서버 모니터링 시스템. 중소규모 팀이 자체 인프라�
 
 <a href="https://www.buymeacoffee.com/addios4u" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="36"></a>
 
-![서버 목록](screenshots/01.png)
+![서버 목록](https://raw.githubusercontent.com/addios4u/ward/main/screenshots/01.png)
 
 ## 주요 기능
 
@@ -18,11 +18,11 @@ Self-hosted 서버 모니터링 시스템. 중소규모 팀이 자체 인프라�
 
 | 서버 상세 | 서비스 목록 |
 |:-:|:-:|
-| ![서버 상세](screenshots/02.png) | ![서비스 목록](screenshots/03.png) |
+| ![서버 상세](https://raw.githubusercontent.com/addios4u/ward/main/screenshots/02.png) | ![서비스 목록](https://raw.githubusercontent.com/addios4u/ward/main/screenshots/03.png) |
 
 | 서비스 상세 |
 |:-:|
-| ![서비스 상세](screenshots/04.png) |
+| ![서비스 상세](https://raw.githubusercontent.com/addios4u/ward/main/screenshots/04.png) |
 
 ## 아키텍처
 
@@ -53,7 +53,7 @@ ward/
 ### 1. 설치
 
 ```bash
-git clone https://github.com/your-username/ward.git
+git clone https://github.com/addios4u/ward.git
 cd ward
 
 cp .env.sample .env
