@@ -114,6 +114,9 @@ vi.mock('../../src/db/index.js', () => {
         country: 'country',
         city: 'city',
         isp: 'isp',
+        osName: 'osName',
+        osVersion: 'osVersion',
+        arch: 'arch',
         status: 'status',
         lastSeenAt: 'lastSeenAt',
         createdAt: 'createdAt',
@@ -184,6 +187,90 @@ describe('GET /api/servers', () => {
     if (servers.length > 0) {
       expect(servers[0]).toHaveProperty('hostname');
       expect(servers[0]).toHaveProperty('groupName');
+    }
+  });
+
+  it('서버 목록에 osName, osVersion, arch가 포함되어야 한다', async () => {
+    const { getDb } = await import('../../src/db/index.js');
+    const mockDb = getDb();
+    vi.mocked(mockDb.orderBy).mockResolvedValueOnce([
+      {
+        id: 'uuid-1',
+        name: '웹 서버 1',
+        hostname: 'web-01.example.com',
+        groupName: null,
+        publicIp: null,
+        country: null,
+        city: null,
+        isp: null,
+        osName: 'Ubuntu',
+        osVersion: '22.04',
+        arch: 'x64',
+        status: 'online',
+        lastSeenAt: new Date('2024-01-01T00:00:00Z'),
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+      },
+    ]);
+
+    const res = await request(app).get('/api/servers');
+
+    expect(res.status).toBe(200);
+    const servers = res.body.servers;
+    expect(Array.isArray(servers)).toBe(true);
+    if (servers.length > 0) {
+      expect(servers[0]).toHaveProperty('osName', 'Ubuntu');
+      expect(servers[0]).toHaveProperty('osVersion', '22.04');
+      expect(servers[0]).toHaveProperty('arch', 'x64');
+    }
+  });
+
+  it('latestMetrics가 정규화된 형식으로 반환되어야 한다 (DB 조회)', async () => {
+    const { getDb } = await import('../../src/db/index.js');
+    const mockDb = getDb();
+    vi.mocked(mockDb.orderBy).mockResolvedValueOnce([
+      {
+        id: 'uuid-1',
+        name: '웹 서버 1',
+        hostname: 'web-01.example.com',
+        groupName: null,
+        publicIp: null,
+        country: null,
+        city: null,
+        isp: null,
+        osName: null,
+        osVersion: null,
+        arch: null,
+        status: 'online',
+        lastSeenAt: new Date('2024-01-01T00:00:00Z'),
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+      },
+    ]);
+
+    // DB 메트릭 반환 (limit 호출)
+    vi.mocked(mockDb.limit).mockResolvedValueOnce([
+      {
+        id: 1,
+        serverId: 'uuid-1',
+        collectedAt: new Date('2024-01-01T12:00:00Z'),
+        cpuUsage: 45.5,
+        memTotal: 8000000000,
+        memUsed: 4000000000,
+        diskUsage: null,
+        networkIo: null,
+        loadAvg: [1.0, 0.8, 0.6],
+      },
+    ]);
+
+    const res = await request(app).get('/api/servers');
+
+    expect(res.status).toBe(200);
+    const servers = res.body.servers;
+    if (servers.length > 0 && servers[0].latestMetrics) {
+      expect(servers[0].latestMetrics).toHaveProperty('cpuUsage');
+      expect(servers[0].latestMetrics).toHaveProperty('memTotal');
+      expect(servers[0].latestMetrics).toHaveProperty('memUsed');
+      expect(servers[0].latestMetrics).toHaveProperty('diskUsage');
+      expect(servers[0].latestMetrics).toHaveProperty('loadAvg');
     }
   });
 });

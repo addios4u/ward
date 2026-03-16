@@ -23,6 +23,9 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction): Promis
         country: schema.servers.country,
         city: schema.servers.city,
         isp: schema.servers.isp,
+        osName: schema.servers.osName,
+        osVersion: schema.servers.osVersion,
+        arch: schema.servers.arch,
         status: schema.servers.status,
         lastSeenAt: schema.servers.lastSeenAt,
         createdAt: schema.servers.createdAt,
@@ -33,13 +36,32 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction): Promis
     // 각 서버의 최신 메트릭을 Redis 캐시에서 조회
     const serversWithMetrics = await Promise.all(
       serverList.map(async (server) => {
-        let latestMetrics: unknown = null;
+        let latestMetrics: {
+          cpuUsage: number | null;
+          memTotal: number | null;
+          memUsed: number | null;
+          diskUsage: unknown | null;
+          loadAvg: number[] | null;
+        } | null = null;
 
         // Redis 캐시에서 먼저 조회
         const cached = await safeGet(REDIS_KEYS.latestMetrics(server.id));
         if (cached) {
           try {
-            latestMetrics = JSON.parse(cached);
+            const parsedCache = JSON.parse(cached) as {
+              cpu?: { usage?: number; loadAvg?: number[] };
+              memory?: { total?: number; used?: number };
+              disk?: unknown;
+            };
+            // Redis 캐시는 MetricsPayload 형식 (cpu.usage, memory.total 등)
+            // → 정규화된 형식으로 변환
+            latestMetrics = {
+              cpuUsage: parsedCache.cpu?.usage ?? null,
+              memTotal: parsedCache.memory?.total ?? null,
+              memUsed: parsedCache.memory?.used ?? null,
+              diskUsage: parsedCache.disk ?? null,
+              loadAvg: parsedCache.cpu?.loadAvg ?? null,
+            };
           } catch {
             // 파싱 실패 시 무시
           }
@@ -53,7 +75,17 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction): Promis
             .where(eq(schema.metrics.serverId, server.id))
             .orderBy(desc(schema.metrics.collectedAt))
             .limit(1);
-          latestMetrics = dbMetrics ?? null;
+
+          if (dbMetrics) {
+            // DB 메트릭은 이미 정규화된 형식 (cpuUsage, memTotal 등)
+            latestMetrics = {
+              cpuUsage: dbMetrics.cpuUsage ?? null,
+              memTotal: dbMetrics.memTotal ?? null,
+              memUsed: dbMetrics.memUsed ?? null,
+              diskUsage: dbMetrics.diskUsage ?? null,
+              loadAvg: dbMetrics.loadAvg ?? null,
+            };
+          }
         }
 
         return {
