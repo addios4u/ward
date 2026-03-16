@@ -199,12 +199,17 @@ export class ServiceWatcher extends EventEmitter {
   }
 
   private _spawnExec(entry: WatchEntry, command: string): void {
-    const parts = command.split(/\s+/);
-    const bin = parts[0]!;
-    const args = parts.slice(1);
+    // 데몬의 node 바이너리 디렉토리를 PATH에 추가 (nvm 등 비표준 설치 환경 대응)
+    const nodeBinDir = path.dirname(process.execPath);
+    const currentPath = process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin';
+    const env = {
+      ...process.env,
+      PATH: currentPath.includes(nodeBinDir) ? currentPath : `${nodeBinDir}:${currentPath}`,
+    };
 
     entry.startedAt = new Date();
-    const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    // sh -c 사용: KEY=VALUE 환경변수 prefix 및 파이프/리다이렉션 지원
+    const child = spawn('sh', ['-c', command], { stdio: ['ignore', 'pipe', 'pipe'], env });
     entry.process = child;
 
     this.emit('status', entry.name, 'running', child.pid, entry.restartCount, entry.startedAt);
