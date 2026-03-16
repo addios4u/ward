@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { serversApi } from '@/lib/api';
 import { MetricsChart } from '@/components/dashboard/MetricsChart';
 import { LogViewer } from '@/components/dashboard/LogViewer';
@@ -21,7 +21,13 @@ function formatGB(bytes: number | null): string {
 export function ServerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const serverId = id!;
-  const [activeTab, setActiveTab] = useState<'metrics' | 'logs'>('metrics');
+  const [searchParams] = useSearchParams();
+
+  // URL 쿼리 파라미터에서 초기 탭과 소스 필터 읽기
+  const initialTab = searchParams.get('tab') === 'logs' ? 'logs' : 'metrics';
+  const initialSource = searchParams.get('source') ?? '';
+
+  const [activeTab, setActiveTab] = useState<'metrics' | 'logs'>(initialTab);
   const [statusData, setStatusData] = useState<ServerStatusResponse | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const { metrics, loading: metricsLoading } = useMetrics(serverId);
@@ -31,6 +37,8 @@ export function ServerDetailPage() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
   const [logLevel, setLogLevel] = useState<LogLevel | ''>('');
+  // URL source 파라미터를 초기 소스 필터로 사용
+  const [logSource, setLogSource] = useState<string>(initialSource);
 
   const loadStatus = useCallback(() => {
     serversApi
@@ -46,12 +54,16 @@ export function ServerDetailPage() {
     return () => clearInterval(timer);
   }, [loadStatus]);
 
-  // 로그 불러오기
+  // 로그 불러오기 (레벨 및 소스 필터 지원)
   const loadLogs = useCallback(
-    (selectedLevel: LogLevel | '') => {
+    (selectedLevel: LogLevel | '', selectedSource: string) => {
       setLogsLoading(true);
       serversApi
-        .getLogs(serverId, { level: selectedLevel || undefined, limit: 100 })
+        .getLogs(serverId, {
+          level: selectedLevel || undefined,
+          source: selectedSource || undefined,
+          limit: 100,
+        })
         .then((res) => {
           setLogs(res.logs);
           setLogsLoading(false);
@@ -67,15 +79,17 @@ export function ServerDetailPage() {
   // 로그 탭 활성화 시 로그 로드
   useEffect(() => {
     if (activeTab === 'logs') {
-      loadLogs(logLevel);
+      loadLogs(logLevel, logSource);
     }
-  }, [activeTab, loadLogs, logLevel]);
+  }, [activeTab, loadLogs, logLevel, logSource]);
 
   // 실시간 WebSocket 로그 수신 (refs로 stale closure 방지 + 불필요한 재구독 방지)
   const activeTabRef = useRef(activeTab);
   const logLevelRef = useRef(logLevel);
+  const logSourceRef = useRef(logSource);
   useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
   useEffect(() => { logLevelRef.current = logLevel; }, [logLevel]);
+  useEffect(() => { logSourceRef.current = logSource; }, [logSource]);
 
   const handleMessage = useCallback((msg: WsMessage) => {
     if (msg.type === 'logs' && activeTabRef.current === 'logs') {
@@ -203,11 +217,11 @@ export function ServerDetailPage() {
       {activeTab === 'logs' && (
         <div className="space-y-2">
           {logsError && (
-            <ErrorMessage message={logsError} onRetry={() => loadLogs(logLevel)} />
+            <ErrorMessage message={logsError} onRetry={() => loadLogs(logLevel, logSource)} />
           )}
           <div className="flex justify-end">
             <button
-              onClick={() => loadLogs(logLevel)}
+              onClick={() => loadLogs(logLevel, logSource)}
               className="text-sm text-blue-600 hover:text-blue-700"
             >
               새로고침
