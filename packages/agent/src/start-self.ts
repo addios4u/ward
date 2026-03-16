@@ -191,6 +191,22 @@ async function main() {
           memUsage,
         };
       }));
+
+      // 서비스 목록 주기적 재동기화 (syncServices 초기 실패 복구)
+      await httpClient.syncServices(
+        WARD_SERVICES.map((svc, i) => ({
+          name: svc.name,
+          type: 'exec',
+          config: { name: svc.name, method: 'exec', command: svc.command },
+          status: (serviceStatuses[i]?.status ?? 'unknown') as 'running' | 'stopped' | 'error' | 'unknown',
+          pid: serviceStatuses[i]?.pid,
+          restartCount: serviceStatuses[i]?.restartCount,
+          startedAt: serviceStatuses[i]?.startedAt,
+          cpuUsage: serviceStatuses[i]?.cpuUsage,
+          memUsage: serviceStatuses[i]?.memUsage,
+        }))
+      ).catch((err: Error) => console.warn('[에이전트] 서비스 재동기화 실패:', err.message));
+
       const result = await httpClient.sendHeartbeat({
         sentAt: new Date().toISOString(),
         hostname: HOSTNAME,
