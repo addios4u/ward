@@ -30,7 +30,7 @@ export function DashboardLayout() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link to="/" className="text-xl font-bold text-gray-900">
-              Ward
+              {import.meta.env.VITE_SITE_TITLE ?? 'Ward'}
             </Link>
             <Link
               to="/"
