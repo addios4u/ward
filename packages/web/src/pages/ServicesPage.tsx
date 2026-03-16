@@ -8,7 +8,26 @@ import type { ServicesResponse } from '@/types';
 
 const POLL_INTERVAL_MS = 30_000;
 
-// 서비스 목록 페이지
+// 바이트를 MB로 변환
+function formatMemMB(bytes: number | null): string {
+  if (bytes === null) return '-';
+  return `${(bytes / 1024 / 1024).toFixed(0)} MB`;
+}
+
+// 프로세스 상태에 따른 Badge 색상 클래스
+function ProcessStatusBadge({ status }: { status: string }) {
+  const isRunning = status === 'running';
+  const colorCls = isRunning
+    ? 'bg-green-100 text-green-700'
+    : 'bg-yellow-100 text-yellow-700';
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colorCls}`}>
+      {status}
+    </span>
+  );
+}
+
+// 서비스 목록 페이지 (실행 중인 프로세스 기반)
 export function ServicesPage() {
   const navigate = useNavigate();
   const [data, setData] = useState<ServicesResponse | null>(null);
@@ -51,66 +70,88 @@ export function ServicesPage() {
   }
 
   const servers = data?.services ?? [];
-  const totalServices = servers.reduce((sum, srv) => sum + srv.services.length, 0);
+  const totalProcesses = servers.reduce((sum, srv) => sum + srv.processes.length, 0);
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">서비스</h1>
-        <span className="text-sm text-gray-500">총 {totalServices}개</span>
+        <span className="text-sm text-gray-500">총 {totalProcesses}개 프로세스</span>
       </div>
 
       {servers.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
-          모니터링 중인 서비스가 없습니다.
+          모니터링 중인 서버가 없습니다.
         </div>
       ) : (
         <div className="space-y-6">
           {servers.map((srv) => (
-            <div key={srv.serverId} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              {/* 서버 헤더 */}
-              <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <div
+              key={srv.serverId}
+              className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+            >
+              {/* 서버 헤더 - 클릭 시 서버 상세로 이동 */}
+              <div
+                className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200 cursor-pointer hover:bg-gray-100"
+                onClick={() => navigate(`/servers/${srv.serverId}`)}
+              >
                 <Badge status={srv.serverStatus} />
                 <span className="font-medium text-gray-900">{srv.serverName}</span>
                 <span className="text-xs text-gray-400">{srv.serverHostname}</span>
               </div>
 
-              {srv.services.length === 0 ? (
+              {srv.processes.length === 0 ? (
                 <div className="px-4 py-6 text-sm text-gray-400 text-center">
-                  등록된 서비스가 없습니다.
+                  실행 중인 프로세스가 없습니다.
                 </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead className="border-b border-gray-100">
                     <tr>
                       <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        서비스 소스
+                        프로세스명
+                      </th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        상태
                       </th>
                       <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        로그 수
+                        PID
                       </th>
                       <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        마지막 로그
+                        CPU%
+                      </th>
+                      <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        메모리
+                      </th>
+                      <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        수집 시각
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {srv.services.map((svc) => (
+                    {srv.processes.map((proc) => (
                       <tr
-                        key={svc.source}
-                        onClick={() => navigate(`/servers/${srv.serverId}?tab=logs&source=${encodeURIComponent(svc.source)}`)}
+                        key={proc.pid}
+                        onClick={() => navigate(`/servers/${srv.serverId}`)}
                         className="hover:bg-gray-50 cursor-pointer"
                       >
                         <td className="px-4 py-3 font-medium text-gray-900">
-                          {svc.source}
+                          {proc.name}
+                        </td>
+                        <td className="px-4 py-3">
+                          <ProcessStatusBadge status={proc.status} />
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-600 font-mono text-xs">
+                          {proc.pid}
                         </td>
                         <td className="px-4 py-3 text-right text-gray-600">
-                          {svc.logCount.toLocaleString()}
+                          {proc.cpuUsage !== null ? `${proc.cpuUsage.toFixed(1)}%` : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-600">
+                          {formatMemMB(proc.memUsage)}
                         </td>
                         <td className="px-4 py-3 text-right text-gray-400 text-xs">
-                          {svc.lastLoggedAt
-                            ? new Date(svc.lastLoggedAt).toLocaleString('ko-KR')
-                            : '-'}
+                          {new Date(proc.collectedAt).toLocaleString('ko-KR')}
                         </td>
                       </tr>
                     ))}
