@@ -196,7 +196,7 @@ export function ServicesPage() {
                       : 'hover:bg-gray-50';
                     return (
                       <tr
-                        key={svc.id}
+                        key={`${svc.serverId}-${svc.name}`}
                         className={`cursor-pointer ${rowBg}`}
                         onClick={() => navigate(`/services/${svc.serverId}/${encodeURIComponent(svc.name)}`)}
                       >
