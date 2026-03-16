@@ -39,7 +39,10 @@ export function createApp(): express.Application {
   }));
 
   // HTTP access log (stdout → ServiceWatcher가 캡처해서 대시보드로 전달)
-  app.use(morgan('combined'));
+  // /api/agent/* 는 에이전트 내부 통신이므로 제외 — 포함 시 자기참조 피드백 루프 발생
+  app.use(morgan('combined', {
+    skip: (req) => req.path.startsWith('/api/agent'),
+  }));
 
   app.use(express.json());
 
