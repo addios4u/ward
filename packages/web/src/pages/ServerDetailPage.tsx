@@ -31,6 +31,7 @@ export function ServerDetailPage() {
   const [logsError, setLogsError] = useState<string | null>(null);
   const [logLevel, setLogLevel] = useState<LogLevel | ''>('');
   const [logSource] = useState<string>(initialSource);
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
   const loadStatus = useCallback(() => {
     serversApi
@@ -68,9 +69,10 @@ export function ServerDetailPage() {
 
   useEffect(() => {
     loadLogs(logLevel, logSource);
+    if (!autoRefresh) return;
     const timer = setInterval(() => loadLogs(logLevel, logSource), 10_000);
     return () => clearInterval(timer);
-  }, [loadLogs, logLevel, logSource]);
+  }, [loadLogs, logLevel, logSource, autoRefresh]);
 
   const logLevelRef = useRef(logLevel);
   const logSourceRef = useRef(logSource);
@@ -93,7 +95,7 @@ export function ServerDetailPage() {
   const latest = metrics[metrics.length - 1] ?? statusData?.latestMetric ?? null;
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-8rem)]">
+    <div className="flex gap-4 h-[calc(100vh-9.5rem)]">
       {/* 왼쪽: 서버 정보 + 메트릭 */}
       <div className="flex-1 min-w-0 overflow-y-auto space-y-4 pr-1">
         <div>
@@ -177,17 +179,28 @@ export function ServerDetailPage() {
       </div>
 
       {/* 오른쪽: 로그 (항상 표시) */}
-      <div className="w-2/5 flex-shrink-0 flex flex-col min-h-0 bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+      <div className="w-2/5 flex-shrink-0 flex flex-col min-h-0 bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+        <div className="px-4 py-2.5 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
           <h2 className="text-sm font-semibold text-gray-700">로그</h2>
           <div className="flex items-center gap-2">
             {logsLoading && <Spinner size="sm" />}
             {logsError && <span className="text-xs text-red-500">{logsError}</span>}
             <button
-              onClick={() => loadLogs(logLevel, logSource)}
-              className="text-xs text-blue-500 hover:text-blue-700"
+              onClick={() => setAutoRefresh(v => !v)}
+              className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                autoRefresh
+                  ? 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100'
+                  : 'bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100'
+              }`}
             >
-              새로고침
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${autoRefresh ? 'bg-green-500' : 'bg-gray-300'}`} />
+              자동갱신
+            </button>
+            <button
+              onClick={() => loadLogs(logLevel, logSource)}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              ↻
             </button>
           </div>
         </div>
