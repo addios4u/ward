@@ -3,19 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { servicesApi } from '@/lib/api';
 import { Spinner } from '@/components/ui/Spinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
-import type { WardService, Log } from '@/types';
-
-// 로그 레벨 색상
-function LogLevelBadge({ level }: { level: string | null }) {
-  const classes: Record<string, string> = {
-    error: 'text-red-600 font-medium',
-    warn:  'text-yellow-600',
-    info:  'text-blue-600',
-    debug: 'text-gray-400',
-  };
-  const cls = level ? (classes[level] ?? 'text-gray-500') : 'text-gray-400';
-  return <span className={`text-xs uppercase w-10 inline-block ${cls}`}>{level ?? '-'}</span>;
-}
+import { LogViewer } from '@/components/dashboard/LogViewer';
+import type { WardService, Log, LogLevel } from '@/types';
 
 function ServiceStatusDot({ status }: { status: string }) {
   const colors: Record<string, string> = {
@@ -38,7 +27,7 @@ export function ServiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [logsLoading, setLogsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [levelFilter, setLevelFilter] = useState<string>('');
+  const [levelFilter, setLevelFilter] = useState<LogLevel | ''>();
 
   const fetchService = useCallback(() => {
     if (!serverId) return;
@@ -64,7 +53,7 @@ export function ServiceDetailPage() {
     setLogsLoading(true);
     servicesApi
       .getLogs(serverId, decodedName, {
-        level: levelFilter || undefined,
+        level: levelFilter ?? undefined,
         limit: 200,
       })
       .then((res) => {
@@ -151,46 +140,17 @@ export function ServiceDetailPage() {
       </div>
 
       {/* 로그 섹션 */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold text-gray-700">로그</h2>
-          <div className="flex items-center gap-2">
-            {logsLoading && <Spinner size="sm" />}
-            <select
-              value={levelFilter}
-              onChange={(e) => setLevelFilter(e.target.value)}
-              className="text-sm border border-gray-200 rounded px-2 py-1 text-gray-600"
-            >
-              <option value="">전체</option>
-              <option value="error">error</option>
-              <option value="warn">warn</option>
-              <option value="info">info</option>
-              <option value="debug">debug</option>
-            </select>
-          </div>
+          {logsLoading && <Spinner size="sm" />}
         </div>
-
-        {logs.length === 0 ? (
-          <div className="px-4 py-10 text-center text-sm text-gray-400">로그가 없습니다.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs font-mono">
-              <tbody>
-                {logs.map((log) => (
-                  <tr key={log.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="px-4 py-1.5 text-gray-400 whitespace-nowrap w-40">
-                      {new Date(log.loggedAt).toLocaleString('ko-KR')}
-                    </td>
-                    <td className="px-2 py-1.5 w-12">
-                      <LogLevelBadge level={log.level} />
-                    </td>
-                    <td className="px-2 py-1.5 text-gray-700 break-all">{log.message}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="h-96">
+          <LogViewer
+            logs={logs}
+            onLevelChange={(level) => setLevelFilter(level)}
+          />
+        </div>
       </div>
     </div>
   );
