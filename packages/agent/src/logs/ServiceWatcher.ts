@@ -4,6 +4,7 @@ import { EventEmitter } from 'events';
 import { spawn, ChildProcess } from 'child_process';
 import pidusage from 'pidusage';
 import type { ServiceConfig } from '../config/ServiceConfig.js';
+import { ClusterManager } from '../cluster/ClusterManager.js';
 
 // 메모리 체크 주기 (30초)
 const MEM_CHECK_INTERVAL_MS = 30_000;
@@ -24,6 +25,8 @@ interface WatchEntry {
   // 상태 추적
   restartCount?: number;
   startedAt?: Date;
+  // 클러스터 모드 (exec + cluster 설정 시)
+  clusterManager?: ClusterManager;
 }
 
 // 부분적으로 버퍼된 라인 (개행 미완성 데이터 보관용)
@@ -67,6 +70,14 @@ export class ServiceWatcher extends EventEmitter {
 
     entry.stopped = true;
 
+    // 클러스터 모드 정리
+    if (entry.clusterManager) {
+      entry.clusterManager.stop().catch(() => {});
+      delete this.lineBuffers[name];
+      this.entries.delete(name);
+      return;
+    }
+
     // 파일 감시 해제
     if (entry.fileWatchers) {
       for (const fw of entry.fileWatchers) {
@@ -109,25 +120,30 @@ export class ServiceWatcher extends EventEmitter {
   // 모든 감시 해제 후 자식 프로세스가 실제로 종료될 때까지 대기
   async unwatchAllAndWait(timeoutMs = 5000): Promise<void> {
     const processes: ChildProcess[] = [];
+    const clusterStops: Promise<void>[] = [];
+
     for (const entry of this.entries.values()) {
-      if (entry.process && entry.process.exitCode === null) {
+      if (entry.clusterManager) {
+        clusterStops.push(entry.clusterManager.stop());
+      } else if (entry.process && entry.process.exitCode === null) {
         processes.push(entry.process);
       }
     }
 
     this.unwatchAll();
 
-    if (processes.length === 0) return;
+    if (processes.length === 0 && clusterStops.length === 0) return;
 
     await Promise.race([
-      Promise.all(
-        processes.map(
+      Promise.all([
+        ...clusterStops,
+        ...processes.map(
           (p) => new Promise<void>((resolve) => {
             if (p.exitCode !== null) { resolve(); return; }
             p.once('close', () => resolve());
           })
-        )
-      ),
+        ),
+      ]),
       new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
     ]);
   }
@@ -198,10 +214,42 @@ export class ServiceWatcher extends EventEmitter {
   // ── 내부 구현: exec 방식 ───────────────────────────────
 
   private _watchExec(config: Extract<ServiceConfig, { method: 'exec' }>): void {
+    // 클러스터 설정이 있으면 ClusterManager에 위임
+    if (config.cluster) {
+      this._watchExecCluster(config);
+      return;
+    }
     const restartDelay = config.restartDelay ?? 3000;
     const entry: WatchEntry = { name: config.name, stopped: false, config, restartDelay, restartCount: 0 };
     this.entries.set(config.name, entry);
     this._spawnExec(entry, config.command);
+  }
+
+  private _watchExecCluster(config: Extract<ServiceConfig, { method: 'exec' }>): void {
+    const clusterManager = new ClusterManager(config);
+    const entry: WatchEntry = {
+      name: config.name,
+      stopped: false,
+      config,
+      restartCount: 0,
+      clusterManager,
+    };
+    this.entries.set(config.name, entry);
+
+    clusterManager.on('line', (text: string) => {
+      this.emit('line', config.name, text);
+    });
+
+    clusterManager.on('status', (_status: string, pid?: number) => {
+      const cs = clusterManager.getStatus();
+      entry.restartCount = cs.totalRestartCount;
+      entry.startedAt = cs.startedAt ?? undefined;
+      this.emit('status', config.name, cs.status, pid, entry.restartCount, entry.startedAt);
+    });
+
+    clusterManager.start().catch((err) => {
+      this.emit('error', err);
+    });
   }
 
   private _spawnExec(entry: WatchEntry, command: string): void {
@@ -306,6 +354,13 @@ export class ServiceWatcher extends EventEmitter {
   restart(name: string): void {
     const entry = this.entries.get(name);
     if (!entry || !entry.config) return;
+
+    // 클러스터 모드: ClusterManager에 재시작 위임
+    if (entry.clusterManager) {
+      entry.clusterManager.restart();
+      return;
+    }
+
     const config = entry.config;
     // 재시작 횟수 누적: 기존 횟수 + 1 (수동 재시작도 카운트)
     const nextRestartCount = (entry.restartCount ?? 0) + 1;
@@ -318,10 +373,28 @@ export class ServiceWatcher extends EventEmitter {
   }
 
   // 서비스 상태 조회
-  getServiceStatus(name: string): { status: 'running' | 'stopped' | 'unknown'; pid?: number; restartCount: number; startedAt?: Date } {
+  getServiceStatus(name: string): {
+    status: 'running' | 'stopped' | 'unknown';
+    pid?: number;
+    restartCount: number;
+    startedAt?: Date;
+    workerPids?: number[]; // 클러스터 모드 시 전체 워커 PID 목록
+  } {
     const entry = this.entries.get(name);
     if (!entry) return { status: 'unknown', restartCount: 0 };
     if (entry.stopped) return { status: 'stopped', restartCount: entry.restartCount ?? 0 };
+
+    // 클러스터 모드
+    if (entry.clusterManager) {
+      const cs = entry.clusterManager.getStatus();
+      return {
+        status: cs.status,
+        restartCount: cs.totalRestartCount,
+        startedAt: cs.startedAt ?? undefined,
+        workerPids: cs.workerPids,
+      };
+    }
+
     if (entry.process) {
       return {
         status: entry.process.exitCode === null ? 'running' : 'stopped',

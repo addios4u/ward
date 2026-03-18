@@ -30,6 +30,7 @@ vi.mock('os', () => ({
 // ServiceWatcher 모킹
 const mockServiceWatch = vi.fn();
 const mockServiceUnwatchAll = vi.fn();
+const mockServiceUnwatchAllAndWait = vi.fn().mockResolvedValue(undefined);
 const mockServiceOn = vi.fn();
 const mockGetServiceStatus = vi.fn().mockReturnValue({ status: 'unknown', restartCount: 0 });
 
@@ -37,6 +38,7 @@ vi.mock('../../src/logs/ServiceWatcher.js', () => ({
   ServiceWatcher: vi.fn().mockImplementation(() => ({
     watch: mockServiceWatch,
     unwatchAll: mockServiceUnwatchAll,
+    unwatchAllAndWait: mockServiceUnwatchAllAndWait,
     on: mockServiceOn,
     getServiceStatus: mockGetServiceStatus,
   })),

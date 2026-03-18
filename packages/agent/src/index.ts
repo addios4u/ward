@@ -82,7 +82,10 @@ serviceCmd
   .option('--journal <unit>', 'systemd 유닛 이름 (예: nginx.service)')
   .option('--docker <container>', '도커 컨테이너 이름')
   .option('--max-mem <size>', '메모리 초과 시 자동 재시작 임계값 (예: 500M, 1G, --exec와 함께 사용)')
-  .action(async (name: string, options: { log?: string[]; exec?: string; cwd?: string; journal?: string; docker?: string; maxMem?: string }) => {
+  .option('--cluster <n>', '클러스터 모드 워커 수 (--exec와 함께 사용, WebSocket 스티키 프록시 포함)')
+  .option('--port <port>', '클러스터 프록시 포트 (외부 노출 포트, --cluster와 함께 사용)')
+  .option('--start-port <port>', '클러스터 워커 시작 포트 (--cluster와 함께 사용, 워커 수만큼 자동 할당)')
+  .action(async (name: string, options: { log?: string[]; exec?: string; cwd?: string; journal?: string; docker?: string; maxMem?: string; cluster?: string; port?: string; startPort?: string }) => {
     await serviceAdd(name, options);
   });
 

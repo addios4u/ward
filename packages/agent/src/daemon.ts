@@ -96,13 +96,21 @@ async function syncServicesToServer(): Promise<void> {
     let cpuUsage: number | undefined;
     let memUsage: number | undefined;
 
-    if (statusInfo.pid && svc.method === 'exec') {
-      try {
-        const stats = await pidusage(statusInfo.pid);
-        cpuUsage = stats.cpu;
-        memUsage = stats.memory;
-      } catch {
-        // PID가 없거나 접근 불가
+    if (svc.method === 'exec') {
+      const pids = statusInfo.workerPids ?? (statusInfo.pid ? [statusInfo.pid] : []);
+      if (pids.length > 0) {
+        try {
+          if (pids.length === 1) {
+            const stats = await pidusage(pids[0]);
+            cpuUsage = stats.cpu;
+            memUsage = stats.memory;
+          } else {
+            // 클러스터 모드: 전체 워커 CPU/메모리 합산
+            const statsMap = await pidusage(pids);
+            cpuUsage = Object.values(statsMap).reduce((sum, s) => sum + s.cpu, 0);
+            memUsage = Object.values(statsMap).reduce((sum, s) => sum + s.memory, 0);
+          }
+        } catch { /* PID 접근 불가 시 무시 */ }
       }
     }
 
@@ -149,12 +157,22 @@ async function sendHeartbeat(): Promise<SendResult> {
       let cpuUsage: number | undefined;
       let memUsage: number | undefined;
 
-      if (statusInfo.pid && svc.method === 'exec') {
-        try {
-          const stats = await pidusage(statusInfo.pid);
-          cpuUsage = stats.cpu;
-          memUsage = stats.memory;
-        } catch { /* 무시 */ }
+      if (svc.method === 'exec') {
+        const pids = statusInfo.workerPids ?? (statusInfo.pid ? [statusInfo.pid] : []);
+        if (pids.length > 0) {
+          try {
+            if (pids.length === 1) {
+              const stats = await pidusage(pids[0]);
+              cpuUsage = stats.cpu;
+              memUsage = stats.memory;
+            } else {
+              // 클러스터 모드: 전체 워커 CPU/메모리 합산
+              const statsMap = await pidusage(pids);
+              cpuUsage = Object.values(statsMap).reduce((sum, s) => sum + s.cpu, 0);
+              memUsage = Object.values(statsMap).reduce((sum, s) => sum + s.memory, 0);
+            }
+          } catch { /* PID 접근 불가 시 무시 */ }
+        }
       }
 
       return {

@@ -54,6 +54,9 @@ export async function serviceAdd(
     journal?: string;
     docker?: string;
     maxMem?: string;
+    cluster?: string;
+    port?: string;
+    startPort?: string;
   }
 ): Promise<void> {
   const config = getConfig();
@@ -62,7 +65,44 @@ export async function serviceAdd(
 
   if (options.exec) {
     const maxMemBytes = options.maxMem ? parseMemSize(options.maxMem) : undefined;
-    service = { name, method: 'exec', command: options.exec, restartDelay: 3000, ...(maxMemBytes ? { maxMemBytes } : {}) };
+
+    // 클러스터 모드 설정 파싱 및 검증
+    let clusterConfig: import('../config/ServiceConfig.js').ClusterConfig | undefined;
+    if (options.cluster !== undefined) {
+      const instances = parseInt(options.cluster, 10);
+      if (isNaN(instances) || instances < 1) {
+        console.error('--cluster 값은 1 이상의 정수여야 합니다.');
+        process.exit(1);
+        return;
+      }
+      if (!options.port) {
+        console.error('클러스터 모드에서는 --port (프록시 포트)가 필요합니다.');
+        process.exit(1);
+        return;
+      }
+      if (!options.startPort) {
+        console.error('클러스터 모드에서는 --start-port (워커 시작 포트)가 필요합니다.');
+        process.exit(1);
+        return;
+      }
+      const port = parseInt(options.port, 10);
+      const startPort = parseInt(options.startPort, 10);
+      if (isNaN(port) || isNaN(startPort)) {
+        console.error('--port, --start-port 값은 정수여야 합니다.');
+        process.exit(1);
+        return;
+      }
+      clusterConfig = { instances, port, startPort };
+    }
+
+    service = {
+      name,
+      method: 'exec',
+      command: options.exec,
+      restartDelay: 3000,
+      ...(maxMemBytes ? { maxMemBytes } : {}),
+      ...(clusterConfig ? { cluster: clusterConfig } : {}),
+    };
   } else if (options.journal) {
     service = { name, method: 'journal', unit: options.journal };
   } else if (options.docker) {
@@ -189,7 +229,7 @@ export function serviceList(): void {
   }
 
   console.log('\n등록된 서비스 목록:');
-  console.log('─'.repeat(60));
+  console.log('─'.repeat(70));
   for (const svc of config.services) {
     let detail = '';
     if (svc.method === 'file')    detail = svc.paths.join(', ');
@@ -197,7 +237,13 @@ export function serviceList(): void {
     if (svc.method === 'journal') detail = svc.unit;
     if (svc.method === 'docker')  detail = svc.container;
     if (svc.method === 'pipe')    detail = svc.command;
-    console.log(`  ${svc.name.padEnd(20)} [${svc.method}]  ${detail}`);
+
+    let clusterInfo = '';
+    if (svc.method === 'exec' && svc.cluster) {
+      clusterInfo = `  [클러스터: ${svc.cluster.instances}개, 프록시: ${svc.cluster.port}, 워커: ${svc.cluster.startPort}~${svc.cluster.startPort + svc.cluster.instances - 1}]`;
+    }
+
+    console.log(`  ${svc.name.padEnd(20)} [${svc.method}]  ${detail}${clusterInfo}`);
   }
-  console.log('─'.repeat(60));
+  console.log('─'.repeat(70));
 }

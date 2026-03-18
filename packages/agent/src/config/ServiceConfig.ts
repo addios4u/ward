@@ -9,6 +9,13 @@ export interface FileServiceConfig {
   paths: string[];       // 감시할 파일 경로 목록
 }
 
+// 클러스터 모드 설정 (exec 방식 전용)
+export interface ClusterConfig {
+  instances: number;   // 워커 수
+  port: number;        // 프록시 포트 (외부 노출)
+  startPort: number;   // 워커 포트 시작 번호 (startPort ~ startPort+instances-1)
+}
+
 // exec 방식: 명령어를 직접 실행하고 stdout/stderr 수집
 export interface ExecServiceConfig {
   name: string;
@@ -16,6 +23,7 @@ export interface ExecServiceConfig {
   command: string;        // 실행할 명령어 (예: "node app.js")
   restartDelay?: number;  // 종료 후 재시작 딜레이(ms), 기본값: 3000
   maxMemBytes?: number;   // 메모리 초과 시 자동 재시작 임계값 (bytes), 미설정 시 비활성
+  cluster?: ClusterConfig; // 클러스터 모드 설정, 미설정 시 단일 프로세스
 }
 
 // journal 방식: journalctl -u <unit> -f 로 systemd 서비스 로그 수집
