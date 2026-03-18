@@ -138,6 +138,9 @@ export class ClusterManager extends EventEmitter {
     });
     worker.process = child;
 
+    // 워커가 시작됐으므로 프록시 포트 목록에 복구
+    this._restoreWorkerInProxy();
+
     this.emit('status', 'running', child.pid, worker.index);
     this._emitLine(`[ward-cluster] 워커 ${worker.index} 시작 (PID: ${child.pid}, PORT: ${worker.port})`);
 
@@ -153,8 +156,13 @@ export class ClusterManager extends EventEmitter {
       this._clearMemTimer(worker);
       this._emitLine(`[ward-cluster] 워커 ${worker.index} 종료 (code: ${code})`);
       this.emit('status', 'stopped', undefined, worker.index);
+      // 프록시 라우팅에서 다운된 워커 포트를 제거 (재시작 완료 전까지 ECONNREFUSED 방지)
+      this._removeWorkerFromProxy(worker);
+      // restartTimer가 이미 예약된 경우 (수동 restart 등) 중복 실행 방지
+      if (worker.restartTimer) return;
       worker.restartCount++;
       worker.restartTimer = setTimeout(() => {
+        worker.restartTimer = undefined;
         if (!worker.stopped && !this.stopped) {
           this._spawnWorker(worker);
         }
@@ -201,11 +209,34 @@ export class ClusterManager extends EventEmitter {
         worker.process?.kill();
       }
     }
-    setTimeout(() => {
+    // worker.restartTimer에 저장: close 핸들러가 이 예약을 감지해 중복 spawn을 방지함
+    worker.restartTimer = setTimeout(() => {
+      worker.restartTimer = undefined;
       if (!worker.stopped && !this.stopped) {
         this._spawnWorker(worker);
       }
     }, 500);
+  }
+
+  /** 다운된 워커를 프록시 라우팅에서 제거 (재시작 완료 시 _spawnWorker에서 복구) */
+  private _removeWorkerFromProxy(worker: WorkerState): void {
+    const activePorts = this.workers
+      .filter(w => w.index !== worker.index && !w.stopped && w.process?.exitCode === null)
+      .map(w => w.port);
+    // 활성 워커가 한 개 이상 있을 때만 제거 (0개면 제거해도 요청을 처리할 곳이 없음)
+    if (activePorts.length > 0) {
+      this.proxy.updateWorkerPorts(activePorts);
+    }
+  }
+
+  /** 워커 재시작 후 전체 활성 포트로 프록시 복구 */
+  private _restoreWorkerInProxy(): void {
+    const activePorts = this.workers
+      .filter(w => !w.stopped && w.process !== null)
+      .map(w => w.port);
+    if (activePorts.length > 0) {
+      this.proxy.updateWorkerPorts(activePorts);
+    }
   }
 
   /** stdout/stderr 청크를 라인 단위로 분리해 'line' 이벤트 발생 */
