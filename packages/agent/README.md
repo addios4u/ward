@@ -121,6 +121,9 @@ ward service add nginx --journal nginx.service
 
 # Docker 컨테이너 로그 수집
 ward service add my-container --docker my-container-name
+
+# 클러스터 모드로 실행 (워커 4개, 프록시 포트 3000, 워커 포트 3001~3004)
+ward service add my-api --exec "node /app/index.js" --cluster 4 --port 3000 --start-port 3001
 ```
 
 | 옵션 | 설명 |
@@ -129,6 +132,10 @@ ward service add my-container --docker my-container-name
 | `--log <경로>` | 로그 파일 tail 감시 |
 | `--journal <유닛>` | systemd journalctl 로그 수집 |
 | `--docker <컨테이너>` | Docker 컨테이너 로그 수집 |
+| `--max-mem <크기>` | 메모리 초과 시 자동 재시작 임계값 (예: `500M`, `1G`, `--exec`와 함께 사용) |
+| `--cluster <수>` | 클러스터 모드 워커 수 (`--exec`와 함께 사용) |
+| `--port <포트>` | 클러스터 프록시 포트 — 외부에서 접속할 포트 (`--cluster`와 함께 필수) |
+| `--start-port <포트>` | 워커 시작 포트 — 지정한 포트부터 워커 수만큼 자동 할당 (`--cluster`와 함께 필수) |
 
 ---
 
@@ -157,6 +164,49 @@ ward service list
   nginx                [file]  /var/log/nginx/access.log
 ────────────────────────────────────────────────────────────
 ```
+
+## 클러스터 모드
+
+`--exec` 서비스에 `--cluster` 옵션을 추가하면 프로세스를 N개의 워커로 실행하고, 앞단에 TCP 스티키 프록시를 자동으로 띄웁니다.
+
+```
+외부 포트 (--port 3000)
+       │
+  [TCP 스티키 프록시]  ← ward-agent가 관리
+       │  클라이언트 IP 해시 → 항상 같은 워커로 고정
+  ┌────┼────┬────┐
+  ▼    ▼    ▼    ▼
+ :3001 :3002 :3003 :3004  ← 독립 프로세스, 각자 다른 포트
+```
+
+**pm2 cluster 모드와의 차이점:**
+
+| | pm2 클러스터 | ward 클러스터 |
+|---|---|---|
+| 포트 공유 방식 | Node.js cluster 모듈 (같은 포트) | 독립 프로세스 + TCP 프록시 |
+| WebSocket | ❌ 워커 이동으로 연결 끊김 | ✅ IP 해시로 항상 같은 워커 |
+| 워커 독립성 | 마스터 프로세스 의존 | 완전 독립 프로세스 |
+
+**앱 설정 방법:**
+
+앱은 `process.env.PORT`로 워커 포트를 받아 listen해야 합니다.
+
+```js
+// Node.js 예시
+const port = process.env.PORT || 3000;
+app.listen(port);
+```
+
+**서비스 목록에서 클러스터 정보 확인:**
+
+```
+등록된 서비스 목록:
+──────────────────────────────────────────────────────────────────────
+  my-api               [exec]  node app.js  [클러스터: 4개, 프록시: 3000, 워커: 3001~3004]
+──────────────────────────────────────────────────────────────────────
+```
+
+---
 
 ## 로그 수집 방식
 
