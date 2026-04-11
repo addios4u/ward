@@ -33,7 +33,7 @@ export const config = {
   },
   retention: {
     metricsDays: parseInt(process.env.METRICS_RETENTION_DAYS ?? '30', 10),
-    logsDays: parseInt(process.env.LOGS_RETENTION_DAYS ?? '7', 10),
+    logsDays: parseInt(process.env.LOGS_RETENTION_DAYS ?? '3', 10),
   },
   redis: {
     url: process.env.REDIS_URL ?? '',
